@@ -1,0 +1,36 @@
+# Surrounding.io - Project Kickoff Walkthrough
+
+We have successfully laid the foundation for Surrounding.io!
+
+## 🏗️ Technical Foundation
+- **Framework:** Next.js (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS (configured for premium dark mode)
+- **Deployment Target:** Hostinger VPS (Node.js verified)
+
+## 🎨 Visual Identity
+The "Surrounding" aesthetic has been implemented in [globals.css](file:///C:/Users/Dave/Documents/surrounding.io/src/app/globals.css):
+- **Background:** Deep Charcoal (`#121212`)
+- **Primary:** Emerald (`#10b981`)
+- **Accent:** Amber (`#f59e0b`)
+- **Touch-First:** All primary buttons are optimized for a 48px+ hit target.
+
+## 🚀 Current State
+The development server is running locally at **http://localhost:3000**. 
+
+### How to verify:
+1. Open your browser and go to `http://localhost:3000`.
+2. You should see the **Surrounding.io** landing page with:
+   - A pulsing "Enter Radar" button.
+   - Glassmorphism effects on the "Footprint" and "Persona" buttons.
+   - A bottom navigation bar designed for mobile thumb-reach.
+
+## 🐞 Known Issues
+- An environment issue with the playwright-based browser tool prevented me from capturing a screenshot for you directly. You'll need to check the visual polish manually for this step.
+
+---
+
+**Next Steps:**
+- Establish the **Auth** layer (LinkedIn/Google/GitHub).
+- Initialize the **PostgreSQL/PostGIS** database connection logic.
+- Build the **Real-time Radar** component.

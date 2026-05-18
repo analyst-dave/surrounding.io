@@ -1,0 +1,53 @@
+# Surrounding.io: Technical Implementation Plan
+
+## Vision
+A premium proximity-based social and professional discovery engine with a "Privacy First" ethos.
+
+## Core Pillars
+
+### 1. Tiered Visibility & The Reciprocity Rule
+Privacy is the barrier to entry for discovery.
+- **T1: Incognito (Default)** - Invisible, no discovery.
+- **T2: Presence Only** - Discoverable conceptually, hidden from map.
+- **T3: Anonymous Active** - Seen as a dot on map, no name/bio shown without connection.
+- **T4: Full Disclosure** - Name, Profile Pic, and Social Bio visible.
+- **Reciprocity Logic:** You can only see others at your current visibility tier or lower. Seeing a T4 user requires you to be T4.
+- **Auto-Reset:** All visibility levels reset to T1 after 24h or event duration.
+
+### 2. High-Fidelity Matchmaking
+Matching is based on "Intents" rather than just static profiles.
+- **Spatial Queries:** `WHERE ST_DWithin(location, user_location, radius_meters)`
+- **Dynamic Intents:** "Snowboarding near me", "Help dog walking", "Recruiter for [Company]".
+- **Organizational Filters:** View-only mode for shared institutions (Education/Corporate/Faith).
+
+### 3. Real-time Geofencing (Safety)
+- **Primary Use Case:** Group leads (Teachers/Guides) tracking members (Students).
+- **Proximity Alerts:** WebSocket-driven push notifications.
+- **Dynamic Alerting:** Alert frequency/volume increases as distance from the fence increases.
+
+### 4. AI Personas
+- Digital agents that act as a buffer for the user.
+- Handle "Connection Requests" and initial queries.
+- Can be set to "Auto-Engage" (Open) or "Gatekeeper" (Closed).
+
+## Tech Stack & Architecture
+
+- **Deployment:** Hostinger VPS (Ubuntu) + Docker. (Firebase as secondary/backup storage).
+- **Frontend:** Next.js + Capacitor (for PlayStore/AppStore deployment).
+- **UI/UX:** Dark Mode, Touch-First Design (44px+ hit targets), Natural Color Palette.
+- **State/Real-time:** Node.js + Socket.io + Redis (for location caching).
+- **Database:** PostgreSQL + PostGIS (Persistent storage and spatial math).
+- **Auth:** NextAuth.js (Social adapters for Google, LinkedIn, FB, GitHub, etc.).
+
+## Detailed Design Requirements
+
+### Touch-Optimized UI
+- **Theme Toggle:** Allow user to toggle between Dark Mode and Light Mode seamlessly.
+- **Large Buttons:** No link smaller than 48px height.
+- **Bottom Navigation:** To accommodate one-handed thumb use.
+- **Vibrant but Low-Contrast Colors:** Deep charcoal backgrounds with natural emerald/amber accents to reduce eye strain.
+
+## Deployment Timeline
+1. **Alpha (Web):** Hosted on Hostinger VPS, testing basic radar and privacy levels.
+2. **Beta (PWA):** Testing "Add to Home Screen" functionality and 24h reset timers.
+3. **Release (Mobile):** Wrapping in Capacitor for App Store submissions.

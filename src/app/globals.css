@@ -1,0 +1,206 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --background: #f8fafc;
+  /* Light Slate - Light Theme Background */
+  --foreground: #0f172a;
+  /* Slate 900 - Light Theme Text */
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --glass: rgba(0, 0, 0, 0.05);
+  --glass-border: rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  --background: #282a2e;
+  /* Slate/Concrete Grey - Dark Theme Background */
+  --foreground: #f8fafc;
+  /* Slate 50 - Dark Theme Text */
+  --emerald: #10b981;
+  --amber: #f59e0b;
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--emerald);
+  --color-accent: var(--amber);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Touch-optimized button base */
+.btn-touch {
+  @apply min-h-[48px] px-6 py-2 rounded-xl flex items-center justify-center font-semibold transition-all active:scale-95 cursor-pointer select-none;
+}
+
+/* Glassmorphism card */
+.glass-card {
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Radar Sweep Animation */
+@keyframes radar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-radar-spin {
+  animation: radar-spin 5s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+/* Custom Prominent Radar Dot Pulse */
+@keyframes radar-dot-pulse {
+
+  0%,
+  10% {
+    opacity: 0;
+    transform: scale(0.5);
+    background-color: transparent;
+    box-shadow: none;
+  }
+
+  30% {
+    opacity: 0.5;
+    transform: scale(0.8);
+    background-color: rgba(52, 211, 153, 0.5);
+    /* lighter emerald */
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+    background-color: rgba(16, 185, 129, 1);
+    /* peak emerald-500 */
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.8), 0 0 15px rgba(16, 185, 129, 0.4);
+  }
+
+  70% {
+    opacity: 0.5;
+    transform: scale(0.8);
+    background-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 4px rgba(16, 185, 129, 0.3);
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.animate-radar-dot {
+  animation: radar-dot-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* Pin Drop Cursor Overrides */
+.pin-drop-mode .leaflet-container {
+  cursor: pointer !important;
+}
+
+body.leaflet-drag-target .pin-drop-mode .leaflet-container,
+.pin-drop-mode .leaflet-container:active {
+  cursor: grabbing !important;
+}
+
+/* Hide Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* User Profile Name Tag Flashing (Synced to 5s radar, 60% hidden, 40% transparent fade) */
+@keyframes name-flash {
+  0% {
+    opacity: 0;
+  }
+
+  2%,
+  20% {
+    opacity: 1;
+  }
+
+  40%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-name-flash {
+  animation: name-flash 5s ease-in-out infinite;
+}
+
+/* Custom Map Popup Styling */
+.dark-popup .leaflet-popup-content-wrapper {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  padding: 2px;
+}
+
+.dark-popup .leaflet-popup-tip {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.dark-popup .leaflet-popup-close-button {
+  color: #9ca3af !important;
+  font-size: 14px !important;
+  padding: 4px !important;
+}
+
+.dark-popup .leaflet-popup-close-button:hover {
+  color: #fff !important;
+  background: transparent !important;
+}

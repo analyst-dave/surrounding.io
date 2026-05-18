@@ -1,0 +1,28 @@
+# Surrounding.io - Task List
+
+- [/] Brand Identity
+    - [!] Generate Logo variations (Blocked by quota - try again in a few hours)
+    - [ ] Select final logo and export assets
+- [x] Define Core App Features
+    - [x] High-level concept (Proximity Networking)
+    - [x] Refine Matchmaking Logic
+    - [x] Refine Privacy & Safety
+    - [x] Real-time Geofencing
+    - [x] AI Assistant ("Persona")
+- [x] Technical Research
+    - [x] Real-time Geolocation (WebSockets vs. Firebase Realtime DB)
+    - [x] Social Auth Matrix (LinkedIn, FB, GitHub, Google, MS, X)
+    - [x] PostGIS Spatial Query optimization
+    - [x] Cross-platform Strategy (Capacitor/PWA for iOS/Android)
+- [x] Implementation Planning
+    - [x] Initial plan created
+    - [x] Update plan with new architectural requirements
+- [/] Execution
+    - [x] Initialize Next.js project with Tailwind/CSS for Dark Mode
+    - [x] Design touch-optimized UI components
+    - [ ] Build Backend (Node.js/Express) with WebSocket support
+    - [ ] Set up PostgreSQL/PostGIS on Hostinger VPS
+- [ ] Verification
+    - [ ] Test real-time location streaming
+    - [ ] Test geofence alert volume/frequency logic
+    - [ ] Test 24h visibility reset logic
