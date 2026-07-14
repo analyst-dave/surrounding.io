@@ -24,6 +24,10 @@ export type Pin = {
   lng: number;
   message: string;
   visibility: 'public' | 'connections' | 'private';
+  type?: 'text' | 'photo';
+  passScore?: number;
+  passTags?: any[];
+  imageUrl?: string;
 };
 
 export default function Home() {
@@ -33,7 +37,7 @@ export default function Home() {
 
   // Pin state
   const [pins, setPins] = useState<Pin[]>([]);
-  const [showPins, setShowPins] = useState(true);
+  const [showPins, setShowPins] = useState(false);
   const [isDroppingPinMode, setIsDroppingPinMode] = useState(false);
 
   const [showRadar, setShowRadar] = useState(true);
@@ -106,6 +110,43 @@ export default function Home() {
   // Profile Overlay State
   const [showProfile, setShowProfile] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<any>(null); // Passed from the map
+
+  // PASS System State
+  const [isUploadingPass, setIsUploadingPass] = useState(false);
+  const [passResult, setPassResult] = useState<any>(null);
+  const [showTagsExplosion, setShowTagsExplosion] = useState(false);
+
+  const handlePassUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingPass(true);
+    setPassResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/pass', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      
+      // Artificial delay for the scanning animation effect
+      setTimeout(() => {
+        setIsUploadingPass(false);
+        setPassResult(data);
+        setShowTagsExplosion(true);
+        setTimeout(() => setShowTagsExplosion(false), 4000); // 4 second explosion
+      }, 2500);
+
+    } catch (error) {
+      console.error('PASS Upload failed', error);
+      setIsUploadingPass(false);
+    }
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,6 +323,107 @@ export default function Home() {
                 onProfileSelect={(p: any) => { setSelectedProfile(p); setShowProfile(true); }}
               />
 
+              {/* PASS Scanning Overlay */}
+              {isUploadingPass && (
+                <div className="absolute inset-0 z-[1000] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-300">
+                  <div className="relative w-32 h-32 mb-8">
+                     <div className="absolute inset-0 rounded-full border-[3px] border-emerald-500/30"></div>
+                     <div className="absolute inset-0 rounded-full border-[3px] border-emerald-400 border-t-transparent animate-spin"></div>
+                     <div className="absolute inset-0 m-auto w-4 h-4 bg-emerald-500 rounded-full animate-ping"></div>
+                  </div>
+                  <h2 className="text-2xl font-bold text-emerald-400 tracking-widest uppercase animate-pulse">PASS Engine</h2>
+                  <p className="text-zinc-400 text-sm mt-4 text-center">Analyzing object density and composition...</p>
+                </div>
+              )}
+
+              {/* PASS Floating Tags Animation */}
+              {showTagsExplosion && passResult && (
+                <div className="absolute inset-0 z-[2000] pointer-events-none overflow-hidden">
+                  {passResult.tags?.map((t: any, i: number) => {
+                    const randomX = Math.floor(Math.random() * 80) + 10;
+                    const randomY = Math.floor(Math.random() * 80) + 10;
+                    const randomDelay = Math.random() * 0.5;
+                    const randomScale = 0.8 + Math.random() * 1.5;
+                    return (
+                      <div 
+                        key={`float-${i}`} 
+                        className="absolute text-emerald-400 font-black tracking-widest uppercase drop-shadow-[0_0_15px_rgba(16,185,129,0.8)] animate-in fade-in zoom-in slide-out-to-top-full duration-[3000ms] fill-mode-forwards"
+                        style={{ 
+                          left: `${randomX}%`, 
+                          top: `${randomY}%`, 
+                          animationDelay: `${randomDelay}s`,
+                          transform: `scale(${randomScale})`
+                        }}
+                      >
+                        {t.tag_text}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* PASS Result Modal */}
+              {passResult && (
+                <div className="absolute inset-0 z-[1000] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in zoom-in-95 duration-500">
+                  <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-8 w-full max-w-sm flex flex-col items-center relative overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.3)]">
+                    <button onClick={() => setPassResult(null)} className="absolute top-4 right-4 text-zinc-400 hover:text-white">
+                      <X className="w-5 h-5" />
+                    </button>
+                    
+                    <span className="text-xs uppercase tracking-widest text-emerald-500 font-bold mb-2">Final Score</span>
+                    <div className="text-6xl font-black text-white mb-2 drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                      {passResult.total_points_earned}<span className="text-2xl text-emerald-500/50">/100</span>
+                    </div>
+
+                    <div className="w-full flex justify-between px-4 py-3 bg-black/40 rounded-xl border border-white/5 mb-6 shadow-inner">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Base Pts</span>
+                        <span className="text-sm font-black text-zinc-300">+{passResult.analysis_breakdown?.raw_points || 45}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Multiplier</span>
+                        <span className="text-sm font-black text-zinc-300">x{passResult.analysis_breakdown?.rarity_multiplier || 1.25}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">Tags</span>
+                        <span className="text-sm font-black text-emerald-400">{passResult.analysis_breakdown?.tags_detected || 4}</span>
+                      </div>
+                    </div>
+
+                    <div className="w-full flex flex-wrap gap-2 justify-center mb-6">
+                      {passResult.tags?.map((t: any, i: number) => (
+                        <span key={i} className={`px-3 py-1 rounded-full text-xs font-bold border ${t.is_high_value ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'bg-white/5 text-zinc-300 border-white/10'}`}>
+                          {t.tag_text} <span className="opacity-50 ml-1">{t.weight}x</span>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="w-full bg-black/50 rounded-xl p-4 border border-white/5">
+                      <p className="text-xs text-zinc-300 italic">{passResult.pro_tip}</p>
+                    </div>
+
+                    <button onClick={() => {
+                      const newPin: Pin = {
+                        id: Date.now().toString(),
+                        lat: 34.0522 + (Math.random() - 0.5) * 0.01,
+                        lng: -118.2437 + (Math.random() - 0.5) * 0.01,
+                        message: passResult.pro_tip || "Dropped a new Photo Pin!",
+                        visibility: 'public',
+                        type: 'photo',
+                        passScore: passResult.total_points_earned,
+                        passTags: passResult.tags,
+                        imageUrl: "https://images.unsplash.com/photo-1542204165-65bf26472b9b?w=300&h=300&fit=crop"
+                      };
+                      setPins((prev: Pin[]) => [...prev, newPin]);
+                      setPassResult(null);
+                      setShowPins(false);
+                    }} className="mt-6 w-full py-3 bg-emerald-500 text-black font-bold rounded-xl btn-touch">
+                      Drop Photo Pin
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Chat Overlay */}
               {showChat && (
                 <div className="absolute inset-x-0 bottom-0 top-[20%] bg-black/10 backdrop-blur-sm border-t border-zinc-500/30 rounded-t-[2rem] z-[600] flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
@@ -346,6 +488,42 @@ export default function Home() {
                       <Send className="w-4 h-4 ml-0.5" />
                     </button>
                   </form>
+                </div>
+              )}
+
+              {/* Photo Pins Overlay */}
+              {showPins && (
+                <div className="absolute inset-x-0 bottom-0 top-[40%] bg-black/60 backdrop-blur-xl border-t border-emerald-500/30 rounded-t-[2rem] z-[500] flex flex-col p-6 animate-in slide-in-from-bottom-full duration-300 shadow-[0_-10px_50px_rgba(16,185,129,0.15)]">
+                  <div className="flex justify-between items-center w-full mb-6 shrink-0">
+                    <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+                      <MapPinned className="w-5 h-5 text-emerald-500" /> My Photo Pins
+                    </h2>
+                    <button onClick={() => setShowPins(false)} className="btn-touch p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
+                      <X className="w-4 h-4 text-zinc-400" />
+                    </button>
+                  </div>
+                  
+                  {/* Gallery Grid */}
+                  <div className="flex-1 overflow-y-auto no-scrollbar grid grid-cols-2 gap-4 pb-10">
+                    {/* Upload / Take Picture Button */}
+                    <label className="relative btn-touch flex flex-col items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border-2 border-dashed border-emerald-500/40 rounded-2xl h-40 cursor-pointer transition-colors group">
+                      <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePassUpload} />
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                        <span className="text-emerald-400 text-3xl font-light leading-none mb-1">+</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-400 tracking-widest uppercase">PASS Drop</span>
+                    </label>
+                    
+                    {/* Placeholder Historical Pins */}
+                    <div className="relative rounded-2xl h-40 overflow-hidden bg-zinc-900 border border-white/10 group cursor-pointer shadow-lg">
+                       <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=300&h=300&fit=crop" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                       <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm px-2 py-1 rounded-lg text-emerald-400 text-[10px] font-bold font-mono border border-emerald-500/30">92.5 pts</div>
+                    </div>
+                    <div className="relative rounded-2xl h-40 overflow-hidden bg-zinc-900 border border-white/10 group cursor-pointer shadow-lg">
+                       <img src="https://images.unsplash.com/photo-1511884642898-4c92249e20b6?w=300&h=300&fit=crop" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 transition-opacity" />
+                       <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm px-2 py-1 rounded-lg text-emerald-400 text-[10px] font-bold font-mono border border-emerald-500/30">78.0 pts</div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -459,8 +637,10 @@ export default function Home() {
           <span className="text-[10px] font-medium">Radar</span>
         </div>
         <div onClick={() => setShowPins(!showPins)} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showPins ? 'opacity-100 text-emerald-500' : 'opacity-50'}`}>
-          <div className={`w-6 h-6 rounded-md ${showPins ? 'bg-emerald-500/20 border border-emerald-500/20' : 'bg-white/10'}`} />
-          <span className="text-[10px] font-medium">Pins</span>
+          <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showPins ? 'bg-emerald-500/20 border border-emerald-500/20 text-emerald-500' : 'bg-white/10'}`}>
+            <MapPinned className="w-4 h-4" />
+          </div>
+          <span className="text-[10px] font-medium">Photo Pins</span>
         </div>
         <div onClick={() => setShowChat(!showChat)} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showChat ? 'opacity-100 text-teal-400' : 'opacity-50'}`}>
           <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showChat ? 'bg-teal-500/20 border border-teal-500/20 text-teal-400' : 'bg-white/10'}`}>

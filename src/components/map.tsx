@@ -82,7 +82,7 @@ const createProfileIcon = (user: { name: string, image: string, type: 'connectio
     });
 };
 
-function UserRadarMarker({ u, position, showRadar, playSonarPing, onProfileSelect }: { u: any, position: [number, number], showRadar: boolean, playSonarPing: () => void, onProfileSelect?: (profile: any) => void }) {
+function UserRadarMarker({ u, position, showRadar, playRadarPing, onProfileSelect }: { u: any, position: [number, number], showRadar: boolean, playRadarPing: () => void, onProfileSelect?: (profile: any) => void }) {
     const delay = getRadarDelay(u.lat, u.lng, position[0], position[1]);
 
     const hasPingedRef = useRef(false);
@@ -94,13 +94,13 @@ function UserRadarMarker({ u, position, showRadar, playSonarPing, onProfileSelec
 
         const timer = setTimeout(() => {
             if (!hasPingedRef.current) {
-                playSonarPing();
+                playRadarPing();
                 hasPingedRef.current = true;
             }
         }, syncDelay * 1000);
 
         return () => { clearTimeout(timer); };
-    }, [showRadar, delay, playSonarPing]);
+    }, [showRadar, delay, playRadarPing]);
 
     return (
         <Marker position={[u.lat, u.lng]} icon={createProfileIcon({ name: u.name, image: u.image, type: u.type, isOnline: u.isOnline }, delay)}>
@@ -168,6 +168,23 @@ const createPinIcon = (message: string) => L.divIcon({
     iconAnchor: [20, 48],
 });
 
+const createPhotoPinIcon = (score: number, imageUrl: string) => L.divIcon({
+    className: 'custom-pin-icon bg-transparent border-none',
+    html: `
+      <div class="relative flex flex-col items-center justify-center transition-transform hover:scale-110">
+        <div class="w-12 h-12 rounded-xl bg-zinc-900 border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)] p-0.5 flex items-center justify-center overflow-hidden">
+            <img src="${imageUrl}" class="w-full h-full object-cover rounded-lg opacity-80" />
+            <div class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-lg">
+               <span class="text-xs font-black text-white drop-shadow-md">${score}</span>
+            </div>
+        </div>
+        <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-sm mt-1 border border-white"></div>
+      </div>
+    `,
+    iconSize: [48, 56],
+    iconAnchor: [24, 56],
+});
+
 // Haversine distance helper (returns meters)
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371e3;
@@ -195,7 +212,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
     // Synthetic Audio for Radar Ping
     const audioCtxRef = useRef<AudioContext | null>(null);
 
-    const playSonarPing = useCallback(() => {
+    const playRadarPing = useCallback(() => {
         try {
             if (!audioCtxRef.current) {
                 audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -206,18 +223,19 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
 
+            // Marimba sound
             osc.type = 'sine';
-            osc.frequency.setValueAtTime(150, ctx.currentTime); // Deep bass submarine sonar
-
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.2); // pitch drop
             gain.gain.setValueAtTime(0, ctx.currentTime);
-            gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.02); // attack (much louder)
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5); // decay echo
+            gain.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5); // fast decay
 
             osc.connect(gain);
             gain.connect(ctx.destination);
 
             osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 1.5);
+            osc.stop(ctx.currentTime + 0.6);
         } catch (e) {
             console.warn('Audio play failed', e);
         }
@@ -395,19 +413,44 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 {/* Pin Drop Handlers and Rendering */}
                 <PinDropHandler isDroppingPinMode={isDroppingPinMode} setPendingPin={setPendingPin} />
                 {showPins && pins.map(pin => (
-                    <Marker key={pin.id} position={[pin.lat, pin.lng]} icon={createPinIcon(pin.message)}>
-                        <Popup className="dark-popup">
-                            <div className="font-sans text-sm font-medium">
-                                {pin.message}
-                                <div className="text-[10px] text-zinc-500 mt-1 uppercase">Visibility: {pin.visibility}</div>
-                            </div>
+                    <Marker 
+                        key={pin.id} 
+                        position={[pin.lat, pin.lng]} 
+                        icon={pin.type === 'photo' ? createPhotoPinIcon(pin.passScore || 0, pin.imageUrl || '') : createPinIcon(pin.message)}
+                    >
+                        <Popup className={pin.type === 'photo' ? "dark-popup min-w-[200px] !p-0 overflow-hidden bg-black/80 backdrop-blur-md border border-emerald-500/50 rounded-2xl shadow-[0_0_20px_rgba(16,185,129,0.3)]" : "dark-popup"}>
+                            {pin.type === 'photo' ? (
+                                <div className="flex flex-col w-full">
+                                    <div className="h-28 w-full relative">
+                                        <img src={pin.imageUrl} className="w-full h-full object-cover opacity-80" />
+                                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                                            {pin.passScore} pts
+                                        </div>
+                                    </div>
+                                    <div className="p-3">
+                                        <div className="flex flex-wrap gap-1 mb-2">
+                                            {pin.passTags?.map((tag: any, i: number) => (
+                                                <span key={i} className="text-[8px] uppercase tracking-wider font-bold bg-white/10 text-zinc-300 px-1.5 py-0.5 rounded">
+                                                    {tag.tag_text}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div className="text-[10px] text-zinc-400 italic leading-tight">{pin.message}</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="font-sans text-sm font-medium p-3">
+                                    {pin.message}
+                                    <div className="text-[10px] text-zinc-500 mt-1 uppercase">Visibility: {pin.visibility}</div>
+                                </div>
+                            )}
                         </Popup>
                     </Marker>
                 ))}
 
                 {/* Nearby Users (Filtered by Radius) */}
                 {showRadar && visibleUsers.map(u => (
-                    <UserRadarMarker key={u.id} u={u} position={position as [number, number]} showRadar={showRadar} playSonarPing={playSonarPing} onProfileSelect={onProfileSelect} />
+                    <UserRadarMarker key={u.id} u={u} position={position as [number, number]} showRadar={showRadar} playRadarPing={playRadarPing} onProfileSelect={onProfileSelect} />
                 ))}
 
                 {/* Main User Marker */}
@@ -456,6 +499,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                         )}
                     </div>
                 </div>
+
 
                 {/* Pin Drop Toast */}
                 {isDroppingPinMode && !pendingPin && (

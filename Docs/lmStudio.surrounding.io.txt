@@ -1,0 +1,94 @@
+This comprehensive documentation package is structured into five distinct modules suitable for handing off tasks to different specialists: **UX/Frontend Development**, **Backend API Development**, **Machine Learning Engineering**, and **Database Design**.
+
+The goal is that any developer or coding agent receiving these specs should be able to understand the required logic without needing constant clarification.
+
+---
+
+# 🤖 Project Specification: Hyper-Scoring Image Analyzer
+**Project Codename:** Apex Score Engine (ASE)
+**Goal:** To create a frictionless user experience where users upload an image, and the system instantly analyzes it via multiple Computer Vision models to generate a comprehensive point score based on detected feature density and complexity.
+
+---
+
+## 📄 Module 1: Feature Overview & User Flow Specification (For Frontend/Product Team)
+
+### A. User Story
+As a user, I want to upload any photo and see an instant, clear score of how "good" it is at earning points, without having to type anything, so that the process feels like a game and encourages me to take more photos.
+
+### B. Operational Flow Diagram (The User Journey)
+
+1.  **Start:** User opens the component view.
+2.  **Action:** User taps/clicks the "Upload Image" zone.
+3.  **Input:** User selects an image file (`.jpg`, `.png`).
+4.  **System State 1: Waiting.** The UI immediately changes to a loading state ("Analyzing Photo Complexity..."). *Crucial:* Do not leave the user waiting longer than **2 seconds**.
+5.  **API Call:** Frontend sends the image file to `/api/v1/analyze_image`.
+6.  **System State 2: Results Received.** Backend returns JSON data (Score, Tags, Breakdown).
+7.  **Display Output:** The UI renders three key sections instantaneously.
+
+### C. User Interface Mockup Requirements (Frontend Components)
+
+| Component | Content Displayed | Design Requirement | Notes |
+| :--- | :--- | :--- | :--- |
+| **Upload Zone** | Single, prominent drag-and-drop/button area. | Minimalist, highly visible CTA. | Zero steps required before analysis starts. |
+| **Score Card** | Large number: `[X] Points Earned`. Badge graphic (e.g., Bronze, Gold, Platinum). | Center stage, celebratory animation upon load. | Immediate psychological reward display. |
+| **Tag Breakdown** | List of all detected tags (`#tag1`, `#tag2`). | Scrollable tag cloud format; use the weight color coding (e.g., Red = High Weight/Object; Blue = Low Weight/Context). | Provides transparency and validation to the user. |
+| **Optimization Tip** | Text: "💡 Pro-Tip for Next Time..." | Callout box at the bottom, actionable advice based on score gaps. | This is the key driver for repeat engagement (the next photo). |
+
+---
+
+## ⚙️ Module 2: Technical Architecture & API Specification (For Backend/API Team)
+
+### A. Endpoint Definition
+
+| Detail | Specification |
+| :--- | :--- |
+| **Endpoint** | `POST /api/v1/analyze_image` |
+| **Method** | `POST` |
+| **Authentication** | Requires Bearer Token (Standard User Auth). |
+| **Input Body (Request)** | `multipart/form-data` containing the image file. |
+| **Latency Requirement** | P95 latency must be $\le 2000\text{ms}$ (2 seconds). |
+
+### B. API Request and Response Contracts
+
+#### 📥 Request Payload Example (Conceptual)
+
+```json
+{
+  "user_id": "user_abc123",
+  "image_file": "[Binary Image Data]"
+}
+```
+
+#### 📤 Response Payload Specification (JSON)
+
+This is the single, critical object returned to the frontend.
+
+```json
+{
+  "success": true,
+  "timestamp": "2024-10-27T10:30:00Z",
+  "total_points_earned": 85, // Integer (The single most important number)
+  "badge_awarded": {
+    "name": "Gold Tier Achiever",
+    "criteria": "Score > 70 points."
+  },
+  "tags": [
+    {
+      "tag_text": "#Porcelain",
+      "category": "Attribute/Material", // e.g., Object, Attribute, Context, OCR
+      "weight": 8,
+      "source_module": "CV_Attribute", // Tracks which CV module found it
+      "is_high_value": true // Boolean flag for UI emphasis
+    },
+    {
+      "tag_text": "#Book",
+      "category": "Object",
+      "weight": 5,
+      "source_module": "CV_Detection",
+      "is_high_value": true
+    }
+    // ... up to 10-20 tag objects
+  ],
+  "analysis_breakdown": {
+    "score_summary": {
+      "
