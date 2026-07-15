@@ -9,13 +9,15 @@
         :root {
             --bg-deep: #010409; --text-main: #f0f6fc; --neon-accent: #38bdf8; 
             /* Ultra-Glass Transparency */
-            --glass-fill: rgba(15, 23, 42, 0.15); --border-line: rgba(255, 255, 255, 0.15); 
+            --glass-fill: rgba(255, 255, 255, 0.05); --border-line: rgba(255, 255, 255, 0.15); 
             --red-singles: #f43f5e;
+            --me-bg: #1f2937;
         }
         body.light-theme {
             /* Extremely light sand/stone color */
             --bg-deep: #f5f2eb; --text-main: #0f172a; --neon-accent: #0ea5e9; 
             --glass-fill: rgba(255, 255, 255, 0.25); --border-line: rgba(0, 0, 0, 0.15);
+            --me-bg: #ffffff;
         }
         body { margin: 0; background: var(--bg-deep); color: var(--text-main); font-family: 'Inter', sans-serif; overflow: hidden; transition: background 0.4s; }
         
@@ -28,7 +30,7 @@
             position: fixed; z-index: 500; background: var(--glass-fill); 
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border-line); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
-            border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); pointer-events: auto; 
+            border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); pointer-events: auto; 
         }
         .glass-card.collapsed { width: 44px !important; height: 44px !important; border-radius: 50% !important; padding: 0 !important; overflow: hidden; min-height: 44px !important; }
         .glass-card.collapsed .content-box { display: none; }
@@ -56,7 +58,8 @@
 
         /* Legend Blade */
         #legend-blade { top: 15px; right: 15px; width: 44px; height: auto; min-height: 44px; border-radius: 22px; padding: 0; display: flex; flex-direction: column; align-items: center; overflow: visible; }
-        #legend-blade.expanded { width: 220px; border-radius: 14px; align-items: flex-start; padding: 12px; padding-right: 48px; }
+        #legend-blade.expanded { width: auto; max-width: 500px; border-radius: 14px; align-items: flex-start; padding: 12px; padding-right: 24px; }
+        #legend-blade.expanded .content-box { display: flex; flex-direction: row; align-items: flex-start; gap: 15px; }
         #legend-blade.collapsed { border-radius: 50% !important; height: 44px !important; }
         #leg-items { margin-top: 50px; display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; padding-bottom: 20px; }
         #legend-blade.expanded #leg-items { align-items: flex-start; margin-top: 40px; padding-bottom: 0; }
@@ -65,7 +68,7 @@
         .leg-sq span { display: none; font-size: 11px; font-weight: 800; color: white; white-space: nowrap; margin-left: 10px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
         #legend-blade.expanded .leg-sq { width: 100%; background: transparent !important; border: none; overflow: visible; }
         #legend-blade.expanded .leg-sq span { display: block; }
-        #legend-blade.expanded .leg-sq::before { content: ''; width: 20px; height: 20px; border-radius: 4px; background: inherit; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.2); transition: 0.2s; }
+        #legend-blade.expanded .leg-sq::before { content: ''; width: 20px; height: 20px; border-radius: 4px; background: var(--sq-color); flex-shrink: 0; border: 1px solid rgba(255,255,255,0.2); transition: 0.2s; }
         
         .leg-sq:hover { transform: scale(1.15); border-color: white; }
         #legend-blade.expanded .leg-sq:hover::before { border-color: white; transform: scale(1.1); }
@@ -73,8 +76,8 @@
         #legend-blade.expanded .leg-sq.active::before { border-color: white; box-shadow: 0 0 15px var(--neon-accent); transform: scale(1.1); }
         #legend-blade.expanded .leg-sq::after { display: none; } 
 
-        #member-list { margin-top: 15px; width: 100%; max-height: 300px; overflow-y: auto; display: none; border-top: 1px solid var(--border-line); padding-top: 10px; scrollbar-width: none; }
-        #legend-blade.expanded #member-list { display: block; }
+        #member-list { position: relative; width: 180px; max-height: 400px; overflow-y: auto; display: none; backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: none; border-left: 1px solid rgba(255,255,255,0.1); border-radius: 0; padding: 0 0 0 15px; margin-top: 40px; scrollbar-width: none; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        #member-list.show { display: block; opacity: 1; pointer-events: auto; }
         .member-row { padding: 8px 10px; font-size: 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
         .member-row:hover { background: rgba(56, 189, 248, 0.2); color: var(--neon-accent); }
 
@@ -135,7 +138,7 @@
 
     <div id="event-strip" class="glass-ui glass-card">
         <div class="dot-trigger has-tooltip" data-tooltip="Acknowledge System Log" onclick="window.App.ui.readEvent()">⦿</div>
-        <div class="content-box"><b id="event-text" style="font-weight:900; font-size:11px; color:var(--neon-accent); text-transform:uppercase; letter-spacing:1px;">Core Systems Online</b></div>
+        <div class="content-box"><b id="event-text" style="font-weight:900; font-size:11px; color:var(--neon-accent); text-transform:uppercase; letter-spacing:1px; white-space:pre-wrap;">Core Systems Online</b></div>
     </div>
 
     <div id="chat-side">
@@ -160,19 +163,33 @@
  */
 
 window.App = {
-    Config: {
-        limit: parseInt(new URLSearchParams(window.location.search).get('n')) || 68,
-        xray: false, avatars: false, light: false, gravity: false,
-        activeNode: null, activeFilter: null, zoomT: null,
-        groups: [], nodes: [], links: []
-    },
-
+    Config: { limit: 68, activeNode: null, activeFilter: null, xray: false, avatars: true, gravity: false, zoomT: null, light: false },
     Narratives: {
-        "Work": ["Did you see the Q3 reorg email?", "Sarah resigned, taking the leads with her.", "The D3 logic is finally stable.", "CEO wants a demo of the spatial map."],
-        "Family": ["Aunt May's pie is officially toxic.", "Mark's mansion moat is leaking.", "Thanksgiving is in Tahoe this year.", "Mom found the old albums."],
-        "Church": ["Pastor's Vegas secret is out.", "Bake sale hit the 10k target.", "Youth group needs a new leader.", "Audit starts on Friday."],
-        "Investors": ["Burn rate is $180k. We have 14 months.", "Series A term sheet is signed. 25M post-money.", "Lead VC wants observer rights.", "User retention is up 40%."],
-        "DevTeam": ["Elasticity target set to 0.1.", "React flow vs D3?", "Websocket latency is high.", "Merge the hotfix."],
+        "Work": [
+            "Hey, do you have the Q3 report?", "Yeah, just sent it.", "Did you see the reorg email?", "Sarah resigned, taking the leads with her.", 
+            "Can we push the meeting to 3?", "Sure, no problem.", "The new feature is finally stable.", "CEO wants a demo tomorrow.",
+            "Are you in the office today?", "Working from home.", "Let's grab coffee later.", "Sounds good!"
+        ],
+        "Family": [
+            "Are we still on for Sunday dinner?", "Yes! Bringing dessert.", "Aunt May's pie is officially toxic.", "Don't tell her that!", 
+            "Mark's mansion moat is leaking.", "Again?!", "Thanksgiving is in Tahoe this year.", "Awesome, booking flights now.",
+            "Mom found the old albums.", "Oh boy...", "Call me when you're free.", "Will do!"
+        ],
+        "Church": [
+            "Choir practice at 7 PM.", "I'll be there.", "Can you help set up chairs?", "Already on it.", 
+            "Pastor wants a meeting.", "I'll check my schedule.", "Community drive this weekend.", "I have some clothes to donate.",
+            "Praying for your family.", "Thank you, means a lot.", "Did you get the bulletin?", "Yes, saw it!"
+        ],
+        "Investors": [
+            "Q2 margins are looking thin.", "We're optimizing server costs.", "Series B term sheet is ready.", "Let's review it at 10.", 
+            "Growth is up 40% MoM.", "Excellent, keep it up.", "Competitor just launched.", "We have a better UX.",
+            "Need the updated cap table.", "Sending it over now.", "Board meeting moved to Friday.", "Noted."
+        ],
+        "DevTeam": [
+            "Prod is down!", "Reverting the last PR.", "Docker container failed.", "Check the logs.", 
+            "Who pushed to main?", "Guilty... fixing it.", "API response is too slow.", "Adding Redis cache.",
+            "New mockups look sick.", "Thanks, took all night.", "Code review requested.", "Looking now."
+        ],
         "Singles": ["MRI results are clear. Fast for 20h.", "Legal discovery phase begins Monday.", "Tax returns are finalized.", "The broker called about the property."]
     },
 
@@ -203,7 +220,6 @@ window.App = {
             d3.select("#grav-btn").classed("active", App.Config.gravity);
             
             const isDense = App.Config.limit > 100;
-            // High friction ensures perfect rapid settling for dense 168 maps
             App.Engine.velocityDecay(App.Config.gravity ? 0.45 : (isDense ? 0.35 : 0.18));
             App.Engine.force("charge").strength(App.Config.gravity ? -10 : (isDense ? -30 : -60));
             
@@ -296,12 +312,12 @@ window.App = {
             const legBox = d3.select("#leg-items").html("");
             App.Config.groups.forEach(g => { if(g.name) {
                 const grpNodes = App.Config.nodes.filter(n => n.group === g.id);
-                g.name = `Circle#size:${grpNodes.length}`;
-                
+                const labelName = g.name.split('#')[0];
                 const sq = legBox.append("div")
                     .attr("class", `leg-sq has-tooltip ${App.Config.activeFilter === g.id ? 'active' : ''}`)
                     .style("background", g.color)
-                    .attr("data-tooltip", g.name)
+                    .style("--sq-color", g.color)
+                    .attr("data-tooltip", `${labelName}#size:${grpNodes.length}`)
                     .on("click", () => {
                         const isClosing = App.Config.activeFilter === g.id;
                         App.Config.activeFilter = isClosing ? null : g.id;
@@ -309,47 +325,63 @@ window.App = {
                         
                         if (!isClosing) {
                             const currentGrpNodes = App.Config.nodes.filter(n => n.group === g.id);
-                            App.ui.renderDir(currentGrpNodes);
+                            App.ui.renderDir(currentGrpNodes, g.color);
+                            if (currentGrpNodes.length > 0) {
+                                const cx = d3.mean(currentGrpNodes, d => d.x);
+                                const cy = d3.mean(currentGrpNodes, d => d.y);
+                                d3.select("#viz").transition().duration(1200).call(window.App.Zoom.transform, d3.zoomIdentity.translate(window.innerWidth/2, window.innerHeight/2).scale(2.0).translate(-cx, -cy));
+                            }
+                        } else {
+                            d3.select("#member-list").classed("show", false);
                         }
                         
                         App.ui.refreshLegend(); App.Engine.alpha(0.1).restart();
                     });
-                sq.append("span").text(g.name);
+                sq.append("span").text(`${labelName}#size:${grpNodes.length}`);
             }});
             
             const singles = App.Config.nodes.filter(n => n.group === 'singles');
             const singSq = legBox.append("div")
                 .attr("class", `leg-sq has-tooltip ${App.Config.activeFilter === 'singles' ? 'active' : ''}`)
                 .style("background", "var(--red-singles)")
+                .style("--sq-color", "var(--red-singles)")
                 .attr("data-tooltip", `Singles#size:${singles.length}`)
                 .on("click", () => {
                     const isClosing = App.Config.activeFilter === 'singles';
                     App.Config.activeFilter = isClosing ? null : 'singles';
                     d3.select("#legend-blade").classed("expanded", !isClosing);
-                    if (!isClosing) App.ui.renderDir(App.Config.nodes.filter(n => n.group === 'singles'));
+                    if (!isClosing) {
+                        App.ui.renderDir(singles, "#f43f5e");
+                        const cx = d3.mean(singles, d => d.x);
+                        const cy = d3.mean(singles, d => d.y);
+                        d3.select("#viz").transition().duration(1200).call(window.App.Zoom.transform, d3.zoomIdentity.translate(window.innerWidth/2, window.innerHeight/2).scale(2.0).translate(-cx, -cy));
+                    } else {
+                        d3.select("#member-list").classed("show", false);
+                    }
                     App.ui.refreshLegend(); App.Engine.alpha(0.1).restart();
                 });
             singSq.append("span").text(`Singles#size:${singles.length}`);
         },
-        renderDir: (arr) => {
-            const list = d3.select("#member-list").html("");
+        renderDir: (arr, colorHex) => {
+            const list = d3.select("#member-list").html("").style("background", `${colorHex}1a`);
+            d3.select("#member-list").classed("show", true);
             arr.forEach(m => list.append("div").attr("class", "member-row").text(m.name).on("click", () => App.ui.openChat(m)));
         }
     },
 
     init: () => {
-        const w = window.innerWidth, h = window.innerHeight;
+        let w = window.innerWidth, h = window.innerHeight;
         const canvas = document.getElementById("edges"), ctx = canvas.getContext("2d");
         const svg = d3.select("#viz"), gLayer = svg.append("g");
         
         canvas.width = w; canvas.height = h;
 
         App.Config.groups = [
-            { id: 0, color: '#94a3b8', angle: -Math.PI * 0.85, name: "Circle" },
-            { id: 1, color: '#a855f7', angle: -Math.PI * 0.65, name: "Circle" },
-            { id: 2, color: '#22c55e', angle: -Math.PI * 0.45, name: "Circle" },
-            { id: 3, color: '#eab308', angle: -Math.PI * 0.25, name: "Circle" },
-            { id: 4, color: '#f97316', angle: -Math.PI * 0.05, name: "Circle" }
+            { id: 0, color: '#94a3b8', angle: -Math.PI * 0.85, name: "Work" },
+            { id: 1, color: '#a855f7', angle: -Math.PI * 0.65, name: "Family" },
+            { id: 2, color: '#22c55e', angle: -Math.PI * 0.45, name: "Church" },
+            { id: 3, color: '#eab308', angle: -Math.PI * 0.25, name: "Investors" },
+            { id: 4, color: '#f97316', angle: -Math.PI * 0.05, name: "DevTeam" }
         ];
 
         App.Config.nodes = [{ id: 0, name: "Me", isMe: true, weight: 1, x: w/2, y: h/2.3, fx: w/2, fy: h/2.3 }];
@@ -400,9 +432,7 @@ window.App = {
                 if(l.type === 'direct') return l.target.group === 'singles' ? 15 : 80 - (l.target.weight * 60);
                 return 12;
             }).strength(1))
-            // Dense 168 mode automatically drops charge to prevent endless bouncing
             .force("charge", d3.forceManyBody().strength(isDense ? -30 : -60))
-            // Reverted global collision radius back to 20 so nodes TOUCH the center naturally again
             .force("collide", d3.forceCollide().radius(d => d.isMe ? 20 : 18).iterations(3))
             .force("x", d3.forceX(d => {
                 if (d.isMe || d.group === 'singles') return w/2;
@@ -420,22 +450,17 @@ window.App = {
                 const cx = window.innerWidth / 2;
                 const cy = window.innerHeight / 2.3;
                 
-                // FORCEFIELD: Prevent nodes from overlapping the center mathematically without breaking global gravity touches
                 App.Config.nodes.forEach(d => {
                     if (!d.isMe) {
                         const dx = d.x - cx;
                         const dy = d.y - cy;
                         const dist = Math.sqrt(dx*dx + dy*dy);
-                        const minR = 12 + (6 + d.weight * 10) + 1; // Center radius (12) + Node Radius + 1px barrier gap
-                        
-                        // Push out exactly to the touch line if they cross it
+                        const minR = 12 + (6 + d.weight * 10) + 1;
                         if (dist < minR && dist > 0) {
                             const force = (minR - dist) / dist;
                             d.x += dx * force * 0.8;
                             d.y += dy * force * 0.8;
                         }
-                        
-                        // Singles clamping strictly blocks them from floating North of the White dot
                         if (d.group === 'singles' && d.y < cy + minR) {
                             d.y = cy + minR;
                             if (d.vy < 0) d.vy = 0; 
@@ -445,40 +470,87 @@ window.App = {
 
                 nodeEls.attr("transform", d => `translate(${d.x},${d.y})`)
                      .attr("fill", d => {
-                         if (d.isMe) return "#fff";
+                         if (d.isMe) return "var(--me-bg)";
                          const cHex = d.color === "var(--red-singles)" ? "#f43f5e" : d.color;
                          return d3.color(cHex).darker(d.weight * 0.4); 
                      })
                      .style("opacity", d => {
                         const bA = d.isMe ? 1 : (0.15 + d.weight * 0.85);
-                        
-                        // 25% True Dim for Singles, exact 50% decay for Avatars
                         const dimA = d.group === 'singles' ? 0.25 : (bA * 0.5);
-                        
                         if (App.Config.activeFilter !== null) {
                             return (d.group === App.Config.activeFilter || d.isMe || (App.Config.activeFilter === 'singles' && d.isLoner)) ? bA : dimA;
                         }
                         if (!App.Config.xray && !App.Config.activeNode) return bA;
                         if (d.isMe || d === App.Config.activeNode) return 1;
-                        
                         const isPath = App.Config.links.some(l => l.type === 'mutual' && ((l.source.id === App.Config.activeNode?.id && l.target.id === d.id) || (l.target.id === App.Config.activeNode?.id && l.source.id === d.id)));
                         return isPath ? 1 : dimA;
                      });
                 draw(App.Config.zoomT || d3.zoomIdentity);
             });
 
+        let hasUserZoomed = false;
         App.Zoom = d3.zoom().scaleExtent([0.1, 10]).on("zoom", (e) => {
+            if (e.sourceEvent) hasUserZoomed = true;
             gLayer.attr("transform", e.transform);
             App.Config.zoomT = e.transform;
             draw(e.transform);
         });
-        svg.call(App.Zoom).call(App.Zoom.transform, d3.zoomIdentity.translate(w/2, h/2).scale(1.45).translate(-w/2, -h/2));
+
+        const ro = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+                    const oldW = w;
+                    w = entry.contentRect.width;
+                    h = entry.contentRect.height;
+                    canvas.width = w;
+                    canvas.height = h;
+                    
+                    if (App.Engine) {
+                        App.Engine.force("x", d3.forceX(d => {
+                            if (d.isMe || d.group === 'singles') return w/2;
+                            const r = App.Config.gravity ? Math.max(20, (1.5 - d.weight) * 60) : 260;
+                            const gConf = App.Config.groups.find(g => g.id === d.group);
+                            return w/2 + Math.cos(gConf ? gConf.angle : 0) * r;
+                        }).strength(d => d.group === 'singles' ? (App.Config.gravity ? 1.0 : 4.0) : (App.Config.gravity ? 0.8 : 0.6)));
+                        
+                        App.Engine.force("y", d3.forceY(d => {
+                            if (d.isMe) return h/2.3;
+                            if (d.group === 'singles') {
+                                const drop = App.Config.gravity ? 15 + (1 - d.weight)*30 : 20 + (d.weight * 25);
+                                return h/2.3 + drop;
+                            }
+                            const r = App.Config.gravity ? Math.max(20, (1.5 - d.weight) * 60) : 260;
+                            const gConf = App.Config.groups.find(g => g.id === d.group);
+                            return h/2.3 + Math.sin(gConf ? gConf.angle : 0) * r;
+                        }).strength(d => d.group === 'singles' ? (App.Config.gravity ? 1.0 : 3.0) : (App.Config.gravity ? 0.8 : 0.6)));
+
+                        App.Engine.alpha(0.3).restart();
+                    }
+                    
+                    if (!hasUserZoomed && Math.abs(w - oldW) > 50) {
+                        svg.call(App.Zoom.transform, d3.zoomIdentity.translate(w / 2, h / 2).scale(2.2).translate(-w / 2, -h / 2.3));
+                    }
+                }
+            }
+        });
+        ro.observe(document.body);
+
+        if (App.Config.avatars) d3.select(document.body).classed("avatar-mode", true);
+        if (App.Config.avatars) d3.select("#av-btn").classed("active", true);
+        if (App.Config.gravity) d3.select("#grav-btn").classed("active", true);
+
+        // Fixed initial zoom, properly centered
+        svg.call(App.Zoom).call(App.Zoom.transform, d3.zoomIdentity.translate(w / 2, h / 2).scale(2.2).translate(-w / 2, -h / 2.3));
 
         const nodeEls = gLayer.append("g").selectAll("g").data(App.Config.nodes).join("g")
             .attr("class", d => d.isMe ? "me-node" : "standard-node")
             .style("cursor", "pointer").on("click", (e, d) => { if(!d.isMe) App.ui.openChat(d); });
 
-        nodeEls.append("circle").attr("class", "node-circle").attr("r", d => d.isMe ? 12 : 6 + (d.weight * 10)).attr("stroke", "rgba(0,0,0,0.5)");
+        nodeEls.append("circle").attr("class", "node-circle").attr("r", d => d.isMe ? 12 : 6 + (d.weight * 10)).attr("stroke", d => d.isMe ? "none" : "rgba(0,0,0,0.5)");
+        nodeEls.filter(d => d.isMe).append("svg")
+            .attr("viewBox", "0 0 32 32").attr("width", 24).attr("height", 24).attr("x", -12).attr("y", -12)
+            .attr("class", "node-circle")
+            .html(`<defs><filter id="em-glow"><feGaussianBlur stdDeviation="1.5" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="16" cy="16" r="14" fill="none" stroke="#6ee7b7" stroke-width="0.5" stroke-opacity="0.3" /><circle cx="16" cy="16" r="10" fill="none" stroke="#34d399" stroke-width="1.2" stroke-opacity="0.6" /><circle cx="16" cy="16" r="6" fill="none" stroke="#10b981" stroke-width="2.5" /><circle cx="16" cy="16" r="3.5" fill="#10b981" filter="url(#em-glow)" />`);
 
         const defs = svg.select("defs");
         App.Config.nodes.forEach(d => {
@@ -493,60 +565,41 @@ window.App = {
                 const isH = App.Config.activeNode && (l.source.id === App.Config.activeNode.id || l.target.id === App.Config.activeNode.id);
                 const isMut = l.type === 'mutual';
                 const bCol = l.target.color === "var(--red-singles)" ? "#f43f5e" : (l.target.color || "#fff");
-                
                 ctx.beginPath();
                 ctx.lineWidth = isH ? 5 : (l.type === 'direct' ? 0.5 + l.target.weight * 4 : 1.2);
-                
-                // Advanced Opacity & Blur State Machine for Cyberpunk Light Mode
-                let blurVal = 0;
-                let alphaVal = 0.4;
-                let strokeCol = bCol;
-                
+                let blurVal = 0, alphaVal = 0.4, strokeCol = bCol;
                 if (App.Config.activeNode || App.Config.xray) {
-                    if (isH) { 
-                        strokeCol = App.Config.light ? "#444" : "#fff"; 
-                        alphaVal = 1; 
-                        blurVal = App.Config.light ? 5 : 10; 
-                        ctx.shadowColor = strokeCol;
-                    } else if (isMut && !App.Config.activeNode) { 
-                        alphaVal = 0.95; 
-                        blurVal = 25; // Massive Cyberpunk Glow regardless of Theme
-                        ctx.shadowColor = bCol; 
-                    } else { 
-                        alphaVal = l.target.group === 'singles' ? 0.25 : 0.05; 
-                    }
+                    if (isH) { strokeCol = App.Config.light ? "#111" : "#fff"; alphaVal = 1; blurVal = App.Config.light ? 15 : 20; ctx.shadowColor = strokeCol; } 
+                    else if (isMut && !App.Config.activeNode) { alphaVal = 0.95; blurVal = 35; ctx.shadowColor = bCol; } 
+                    else { alphaVal = l.target.group === 'singles' ? 0.25 : 0.05; }
                 } else if (App.Config.activeFilter !== null) {
                     const inGrp = (App.Config.activeFilter === 'singles' && l.target.isLoner) || (l.target.group === App.Config.activeFilter);
-                    if (inGrp) {
-                        alphaVal = isMut ? 0.7 : 0.4;
-                        blurVal = isMut ? 25 : 0; // Glowing targeted Mutual Web
-                        ctx.shadowColor = bCol;
-                    } else {
-                        alphaVal = l.target.group === 'singles' ? 0.25 : 0.02; 
-                    }
-                } else {
-                    alphaVal = isMut ? 0.35 : 0.4;
-                    blurVal = isMut ? 20 : 0; // Ambient Mutual Glow
-                    ctx.shadowColor = bCol;
-                }
-
-                ctx.strokeStyle = strokeCol;
-                ctx.globalAlpha = alphaVal;
-                ctx.shadowBlur = blurVal;
-                
+                    if (inGrp) { alphaVal = isMut ? 0.7 : 0.4; blurVal = isMut ? 25 : 0; ctx.shadowColor = bCol; } else { alphaVal = l.target.group === 'singles' ? 0.25 : 0.02; }
+                } else { alphaVal = isMut ? 0.35 : 0.4; blurVal = isMut ? 20 : 0; ctx.shadowColor = bCol; }
+                ctx.strokeStyle = strokeCol; ctx.globalAlpha = alphaVal; ctx.shadowBlur = blurVal;
                 ctx.moveTo(l.source.x, l.source.y); ctx.lineTo(l.target.x, l.target.y); ctx.stroke();
             });
             ctx.restore();
         }
 
+        let tickerInterval;
         App.mergeTimer = setTimeout(() => {
             d3.select("#event-strip").classed("unread-flash", true);
-            d3.select("#event-text").text("BRIDGE EVENT: YELLOW + GREEN → BLUE MERGE");
-            
+            d3.select("#event-text").text("STRUCTURAL MERGE: YELLOW + GREEN → BLUE (INITIATING...)");
+            setTimeout(() => {
+                d3.select("#event-strip").classed("unread-flash", false);
+                const str = "System stable. Gravity fields normalized. Telemetry stream connected.";
+                let i = 0;
+                d3.select("#event-text").text("");
+                tickerInterval = setInterval(() => {
+                    d3.select("#event-text").text(str.substring(0, i) + "█");
+                    i++;
+                    if (i > str.length) { clearInterval(tickerInterval); d3.select("#event-text").text(str); }
+                }, 50);
+            }, 10000);
             const g2 = App.Config.groups.find(g => g.id === 2);
             const g3 = App.Config.groups.find(g => g.id === 3);
             if(!g2 || !g3) return;
-
             const n2 = App.Config.nodes.find(n => n.group === 2);
             const n3 = App.Config.nodes.find(n => n.group === 3);
             if(n2 && n3) {
@@ -581,7 +634,7 @@ window.App = {
             const targetColor = "#38bdf8"; // Neon Blue Merge Destination
             g2.angle = (g2.angle + g3.angle) / 2;
 
-            d3.timer((elapsed) => {
+            const t = d3.timer((elapsed) => {
                 const tFact = Math.min(1, elapsed / 2500);
                 
                 App.Config.nodes.forEach(n => {
@@ -595,7 +648,7 @@ window.App = {
                 if(tFact === 1) { 
                     App.Config.nodes.forEach(n => delete n._startColor);
                     App.ui.refreshLegend(); 
-                    return true; 
+                    t.stop();
                 }
             });
             
@@ -616,6 +669,11 @@ window.App = {
             }));
 
         App.ui.refreshLegend(); 
+        
+        // Initialize in Gravity Mode
+        setTimeout(() => {
+            window.App.ui.gravity();
+        }, 100);
     }
 };
 

@@ -1,10 +1,11 @@
 "use client";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useTheme } from "next-themes";
-import { Github, Twitter, Chrome, Linkedin, UserCircle2, Facebook, MapPinned, Send, MessageSquare, User, X, Share2 } from "lucide-react";
+import { Github, Twitter, Chrome, Linkedin, UserCircle2, Facebook, MapPinned, Send, MessageSquare, User, X, Share2, Slack, Gamepad2, Music } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 // Dynamically import Map with no SSR because leaflet requires the window object
 const MapView = dynamic(() => import("@/components/map"), { ssr: false });
@@ -69,69 +70,130 @@ export default function Home() {
   const [showRadar, setShowRadar] = useState(true);
 
   // Auth simulation state
+  const supabase = createClient();
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [user, setUser] = useState<{ name: string, image: string } | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [email, setEmail] = useState('test@surrounding.io');
+  const [password, setPassword] = useState('password123');
 
-  const mockConnections = [
-    { id: '1', name: 'Sarah J.', image: 'https://i.pravatar.cc/150?u=sarah', distance: '12m', unread: 0 },
-    { id: '2', name: 'Mike T.', image: 'https://i.pravatar.cc/150?u=mike', distance: '45m', unread: 2 },
-    { id: '3', name: 'Elena R.', image: 'https://i.pravatar.cc/150?u=elena', distance: '80m', unread: 1 },
-    { id: '4', name: 'Alex K.', image: 'https://i.pravatar.cc/150?u=alex', distance: '120m', unread: 0 },
-    { id: '5', name: 'Tom H.', image: 'https://i.pravatar.cc/150?u=tom', distance: '200m', unread: 0 },
-    { id: '6', name: 'Aisha M.', image: 'https://i.pravatar.cc/150?u=aisha', distance: '250m', unread: 5 },
-    { id: '7', name: 'Jordan P.', image: 'https://i.pravatar.cc/150?u=jordan', distance: '300m', unread: 0 },
-    { id: '8', name: 'David W.', image: 'https://i.pravatar.cc/150?u=david', distance: '400m', unread: 1 },
-    { id: '9', name: 'Chris L.', image: 'https://i.pravatar.cc/150?u=chris', distance: '450m', unread: 0 },
-    { id: '10', name: 'Kelly B.', image: 'https://i.pravatar.cc/150?u=kelly', distance: '500m', unread: 0 },
-    { id: '11', name: 'James C.', image: 'https://i.pravatar.cc/150?u=james', distance: '600m', unread: 0 },
-    { id: '12', name: 'Sam D.', image: 'https://i.pravatar.cc/150?u=sam', distance: '800m', unread: 0 },
-    { id: '13', name: 'Erica F.', image: 'https://i.pravatar.cc/150?u=erica', distance: '900m', unread: 0 },
-    { id: '14', name: 'Greg G.', image: 'https://i.pravatar.cc/150?u=greg', distance: '1.2km', unread: 0 },
-    { id: '15', name: 'Hannah I.', image: 'https://i.pravatar.cc/150?u=hannah', distance: '1.5km', unread: 0 },
-  ];
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => { subscription.unsubscribe(); };
+  }, []);
 
-  type Message = { sender: 'me' | 'them', text: string, time: string };
+  const [connections, setConnections] = useState<any[]>([]);
+  const [allMessages, setAllMessages] = useState<Record<string, any[]>>({});
 
-  const initialMessages: Record<string, Message[]> = {
-    '1': [
-      { sender: 'them', text: 'Hey! I see your signal on the radar.', time: '10:41 AM' },
-      { sender: 'me', text: 'Yeah just linking up here. Are you at the cafe?', time: '10:42 AM' },
-      { sender: 'them', text: 'Yes, just sitting by the window.', time: '10:43 AM' },
-      { sender: 'them', text: 'It is pretty packed today.', time: '10:44 AM' },
-      { sender: 'me', text: 'I see you! Be right over.', time: '10:45 AM' },
-      { sender: 'them', text: 'Awesome.', time: '10:46 AM' },
-      { sender: 'me', text: 'Actually wait, I just saw a friend.', time: '10:50 AM' },
-      { sender: 'them', text: 'Oh no worries! Take your time.', time: '10:51 AM' },
-      { sender: 'me', text: 'Thanks. You still have that codebase open?', time: '10:55 AM' },
-      { sender: 'them', text: 'Yeah I am reviewing the PR now.', time: '10:56 AM' },
-      { sender: 'me', text: 'Cool, let me know what you think of the new UI overlay.', time: '11:00 AM' },
-      { sender: 'them', text: 'Will do. I think making the header a single row is a good call.', time: '11:02 AM' },
-      { sender: 'me', text: 'Agreed, it saves a ton of vertical space.', time: '11:05 AM' }
-    ],
-    '2': [
-      { sender: 'them', text: 'Are you going to the tech meetup later?', time: '09:15 AM' },
-      { sender: 'them', text: 'Trying to find someone to walk with.', time: '09:16 AM' }
-    ],
-    '3': [
-      { sender: 'them', text: 'Nice profile, what framework do you mostly use?', time: 'Yesterday' }
-    ],
-    '4': [
-      { sender: 'me', text: 'Thanks for connecting!', time: 'Yesterday' },
-      { sender: 'them', text: 'Likewise! Catch you around the block.', time: 'Yesterday' }
-    ],
-    '6': [
-      { sender: 'them', text: 'Hey there! Checking out the new app build.', time: '10:00 AM' },
-      { sender: 'them', text: 'Looks like radar works smoothly.', time: '10:05 AM' },
-    ]
-  };
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchChatData = async () => {
+      // In a real app we'd paginate, but for now we fetch all accepted connections
+      const { data: conns, error } = await supabase
+        .from('connections')
+        .select(`
+          id,
+          requester_id,
+          addressee_id,
+          requester:profiles!connections_requester_id_fkey(id, username, avatar_url),
+          addressee:profiles!connections_addressee_id_fkey(id, username, avatar_url),
+          messages(id, content, created_at, sender_id)
+        `)
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
+      if (error) {
+        console.error("Error fetching connections:", error);
+        return;
+      }
+
+      const formattedConnections = [];
+      const messagesMap: Record<string, any[]> = {};
+
+      for (const conn of conns) {
+        // Determine the "other" user in the connection
+        const otherUser = conn.requester_id === user.id ? conn.addressee : conn.requester;
+        
+        // Ensure messages are an array (it might be an object if 1 message or empty)
+        const msgs = Array.isArray(conn.messages) ? conn.messages : (conn.messages ? [conn.messages] : []);
+        
+        // Sort messages chronologically for the chat view
+        msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        
+        const mappedMsgs = msgs.map((m: any) => ({
+          sender: m.sender_id === user.id ? 'me' : 'them',
+          text: m.content,
+          time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+        
+        messagesMap[conn.id.toString()] = mappedMsgs;
+
+        const latestDateMillis = msgs.length > 0 ? new Date(msgs[msgs.length - 1].created_at).getTime() : 0;
+        const d = new Date(latestDateMillis);
+        d.setHours(0, 0, 0, 0);
+        const latestDateDay = d.getTime();
+        
+        formattedConnections.push({
+          id: conn.id.toString(),
+          name: otherUser.username,
+          image: otherUser.avatar_url || 'https://i.pravatar.cc/150',
+          latestMessageDate: latestDateDay,
+          messageCount: msgs.length,
+          unread: 0 // Mock for now
+        });
+      }
+
+      // Sort by Message Count DESC (depth of bond), then Recency DESC
+      formattedConnections.sort((a, b) => {
+        if (b.messageCount !== a.messageCount) {
+           return b.messageCount - a.messageCount;
+        }
+        return b.latestMessageDate - a.latestMessageDate;
+      });
+
+      setConnections(formattedConnections);
+      setAllMessages(messagesMap);
+      if (formattedConnections.length > 0) setActiveChat(formattedConnections[0]);
+    };
+
+    fetchChatData();
+  }, [user]);
 
   // Chat State
   const [showChat, setShowChat] = useState(false);
-  const [activeChat, setActiveChat] = useState(mockConnections[0]);
-  const [allMessages, setAllMessages] = useState<Record<string, Message[]>>(initialMessages);
+  const [activeChat, setActiveChat] = useState<any>(null);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+       chatContainerRef.current.scrollTo({
+         top: chatContainerRef.current.scrollHeight,
+         behavior: 'smooth'
+       });
+    }
+  };
+
+  useEffect(() => {
+    if (activeChat && showChat) {
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [activeChat, allMessages, showChat]);
+
+  // Auto-expand map if untouched for 3s
+  useEffect(() => {
+    if (showMap && !isExpanded && !showChat && !showPins && !showConnections) {
+      const t = setTimeout(() => setIsExpanded(true), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [showMap, isExpanded, showChat, showPins, showConnections]);
 
   // Profile Overlay State
   const [showProfile, setShowProfile] = useState(false);
@@ -197,19 +259,22 @@ export default function Home() {
     }, 2500);
   };
 
+  const handleBackClick = () => {
+    setIsDiscovering(false);
+    setIsExpanded(false);
+    setShowMap(false);
+    setShowChat(false);
+    setShowConnections(false);
+    setShowPins(false);
+    setIsDroppingPinMode(false);
+  };
+
   const handleDiscoverClick = () => {
     setIsDiscovering(true);
     // Wait for the upward expansion animation to complete before rendering the map payload
     setTimeout(() => {
       setShowMap(true);
     }, 400);
-  };
-
-  const handleBackClick = () => {
-    setShowMap(false);
-    setIsDiscovering(false);
-    setIsExpanded(false);
-    setIsDroppingPinMode(false);
   };
 
   const handleExpandClick = () => {
@@ -227,17 +292,41 @@ export default function Home() {
     }
   };
 
-  const handleMockLogin = (provider: string) => {
+  const handleConnectRequest = async (targetUserId: string) => {
+    if (!user) return;
+    const { error } = await supabase.from('connections').insert({
+      requester_id: user.id,
+      addressee_id: targetUserId,
+      status: 'pending'
+    });
+    if (!error) {
+      alert("Connection request sent successfully!");
+    } else {
+      console.error(error);
+      alert("Failed to send request. You may have already sent one.");
+    }
+  };
+
+  const handleOAuthLogin = async (provider: any) => {
     setIsLoggingIn(true);
-    // Simulate network delay
-    setTimeout(() => {
-      setUser({
-        name: "Dave",
-        image: "https://github.com/shadcn.png" // Using a reliable placeholder avatar
-      });
-      setIsLoggingIn(false);
+    await supabase.auth.signInWithOAuth({ provider });
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert(error.message);
+    } else {
       setIsLoginOpen(false);
-    }, 1500);
+    }
+    setIsLoggingIn(false);
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setIsLoginOpen(false);
   };
 
   return (
@@ -257,7 +346,7 @@ export default function Home() {
             className="btn-touch glass-card flex items-center justify-center text-foreground w-[46px] h-[46px] !p-0 !min-h-0 overflow-hidden"
           >
             {user ? (
-              <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
+              <img src={user.user_metadata?.avatar_url || 'https://i.pravatar.cc/150'} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <UserCircle2 className="w-5 h-5" />
             )}
@@ -271,26 +360,29 @@ export default function Home() {
               <h3 className="text-sm font-bold text-center mb-1">{user ? 'Signed In' : 'Authenticate'}</h3>
 
               {!user ? (
-                <>
-                  <button onClick={() => handleMockLogin('google')} className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 text-black p-2.5 rounded-xl transition-colors text-sm font-medium shadow-sm">
-                    <Chrome className="w-4 h-4 text-blue-500" /> Continue with Google
-                  </button>
-                  <button onClick={() => handleMockLogin('facebook')} className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#1877F2]/90 text-white p-2.5 rounded-xl transition-colors text-sm font-medium">
-                    <Facebook className="w-4 h-4 fill-current" /> Continue with Facebook
-                  </button>
-                  <button onClick={() => handleMockLogin('linkedin')} className="w-full flex items-center justify-center gap-3 bg-[#0A66C2] hover:bg-[#0A66C2]/90 text-white p-2.5 rounded-xl transition-colors text-sm font-medium">
-                    <Linkedin className="w-4 h-4 fill-current" /> Continue with LinkedIn
-                  </button>
-                  <button onClick={() => handleMockLogin('github')} className="w-full flex items-center justify-center gap-3 bg-zinc-800 hover:bg-zinc-700 text-white p-2.5 rounded-xl transition-colors text-sm font-medium border border-white/5">
-                    {isLoggingIn ? <span className="animate-spin w-4 h-4 rounded-full border-2 border-white/20 border-t-white"></span> : <><Github className="w-4 h-4" /> Continue with Github</>}
-                  </button>
-                  <button onClick={() => handleMockLogin('twitter')} className="w-full flex items-center justify-center gap-3 bg-black hover:bg-zinc-900 text-white p-2.5 rounded-xl transition-colors text-sm font-medium border border-white/10">
-                    <Twitter className="w-4 h-4 fill-current" /> Continue with Twitter
-                  </button>
-                </>
+                <div className="space-y-4">
+                  <form onSubmit={handleEmailLogin} className="flex flex-col gap-2 border-b border-white/10 pb-4">
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" required />
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500" required />
+                    <button type="submit" disabled={isLoggingIn} className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold p-2.5 rounded-xl transition-colors text-sm shadow-sm flex items-center justify-center">
+                      {isLoggingIn ? <span className="animate-spin w-4 h-4 rounded-full border-2 border-black/20 border-t-black"></span> : 'Test Sign In'}
+                    </button>
+                  </form>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => handleOAuthLogin('google')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Chrome className="w-3 h-3 text-blue-400" /> Google</button>
+                    <button onClick={() => handleOAuthLogin('facebook')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Facebook className="w-3 h-3 text-blue-500" /> Facebook</button>
+                    <button onClick={() => handleOAuthLogin('linkedin')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Linkedin className="w-3 h-3 text-sky-500" /> LinkedIn</button>
+                    <button onClick={() => handleOAuthLogin('github')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Github className="w-3 h-3" /> GitHub</button>
+                    <button onClick={() => handleOAuthLogin('twitter')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Twitter className="w-3 h-3 text-sky-400" /> Twitter</button>
+                    <button onClick={() => handleOAuthLogin('slack')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Slack className="w-3 h-3 text-purple-400" /> Slack</button>
+                    <button onClick={() => handleOAuthLogin('discord')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Gamepad2 className="w-3 h-3 text-indigo-400" /> Discord</button>
+                    <button onClick={() => handleOAuthLogin('tiktok')} className="flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 text-white p-2 rounded-lg transition-colors text-xs font-medium border border-white/5"><Music className="w-3 h-3 text-pink-400" /> TikTok</button>
+                  </div>
+                </div>
               ) : (
                 <button
-                  onClick={() => { setUser(null); setIsLoginOpen(false); }}
+                  onClick={handleSignOut}
                   className="w-full flex items-center justify-center bg-red-500/10 hover:bg-red-500/20 text-red-500 p-2.5 rounded-xl transition-colors text-sm font-medium border border-red-500/20"
                 >
                   Sign Out
@@ -303,31 +395,36 @@ export default function Home() {
 
       {/* Hero Section */}
       <header className={`flex flex-col items-center transition-all duration-2000 z-10 shrink-0 ${isDiscovering ? (isExpanded ? 'scale-50 opacity-100 mb-0 -mt-2' : 'scale-75 opacity-100 mb-2 mt-0') : 'scale-100 opacity-100 mb-8 mt-0'}`}>
-        <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-foreground flex items-center drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-          surr<BeaconO />unding.i<BeaconO />
-        </h1>
+        <button onClick={handleBackClick} className="cursor-pointer hover:opacity-80 transition-opacity">
+          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-foreground flex items-center drop-shadow-[0_0_15px_rgba(16,185,129,0.2)] select-none">
+            surr<BeaconO />unding.i<BeaconO />
+          </h1>
+        </button>
         <p className={`text-zinc-400 text-lg max-w-sm mx-auto transition-all duration-1000 overflow-hidden ${isDiscovering ? 'h-0 opacity-0 mt-0' : 'h-[60px] opacity-100 mt-4'}`}>
           Connections within your immediate reach.
         </p>
       </header>
 
+
       {/* Main Container */}
-      <div className={`w-full flex flex-col items-center justify-center relative transition-all duration-2000 shrink-0 ${isExpanded ? 'max-w-[100vw] px-4' : 'max-w-[24rem] px-0'} ${isDiscovering ? 'mt-0 mb-0 flex-grow-0' : ''}`}>
+      <div className={`w-full flex flex-col items-center justify-center relative transition-all duration-2000 shrink-0 ${isExpanded ? 'max-w-[100vw] px-4' : 'max-w-md px-0'} ${isDiscovering ? 'mt-0 mb-0' : 'mt-20'}`}>
 
         {/* Expanding Map Area */}
-        <div className={`w-full flex justify-center items-center transition-all duration-2000 ease-[cubic-bezier(0.25,1,0.5,1)] relative z-20 ${isDiscovering ? (isExpanded ? 'h-[calc(100dvh-150px)] mb-0' : 'h-[50dvh] min-h-[400px] mb-6') : 'h-[56px] min-h-[56px] mb-6'}`}>
+        <div 
+          className={`w-full flex justify-center items-center transition-all duration-2000 ease-[cubic-bezier(0.25,1,0.5,1)] relative z-20 ${isDiscovering ? (isExpanded ? 'h-[calc(100dvh-150px)] mb-0' : 'h-[50dvh] min-h-[400px] mb-6') : 'h-[56px] min-h-[56px] mb-6'}`}
+        >
           {!showMap ? (
             <button
               onClick={handleDiscoverClick}
               className={`btn-touch w-full flex items-center justify-center bg-emerald-500 text-background font-bold text-lg shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-all duration-2000
-              ${isDiscovering ? 'h-full rounded-[2rem] bg-zinc-900 border border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.1)]' : 'h-[56px] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] active:scale-95'}`}
+              ${isDiscovering ? 'h-full rounded-[2rem] bg-black border border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.1)]' : 'h-[56px] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] active:scale-95'}`}
             >
               <span className={`transition-all duration-1000 ${isDiscovering ? 'opacity-0 scale-90 tracking-widest translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
                 Discover
               </span>
             </button>
           ) : (
-            <div className="absolute inset-0 w-full h-full border border-white/10 rounded-[2rem] overflow-hidden bg-zinc-900 shadow-2xl animate-in fade-in zoom-in-95 duration-1000">
+            <div className="absolute inset-0 w-full h-full border-none rounded-[2rem] overflow-hidden bg-black shadow-[0_20px_60px_rgba(0,0,0,0.8)] animate-in fade-in zoom-in-95 duration-1000">
               {/* Click Interceptor for Collapsed Map */}
               {!isExpanded && (
                 <div
@@ -337,11 +434,6 @@ export default function Home() {
               )}
               {showConnections ? (
                 <div className="w-full h-full relative">
-                  <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
-                    <button onClick={() => setShowConnections(false)} className="btn-touch glass-card px-3.5 py-2 text-xs font-bold text-white flex items-center gap-1.5 shadow-lg border border-white/10 bg-black/40 backdrop-blur-md rounded-xl">
-                      <X className="w-3.5 h-3.5" /> Back to Map
-                    </button>
-                  </div>
                   <iframe
                     id="connections-iframe"
                     src="/connections.html"
@@ -351,19 +443,26 @@ export default function Home() {
                   />
                 </div>
               ) : (
-                <MapView
-                  user={user}
-                  isExpanded={isExpanded}
-                  onBackClick={handleBackClick}
-                  onExpandClick={handleExpandClick}
-                  isDroppingPinMode={isDroppingPinMode}
-                  setIsDroppingPinMode={setIsDroppingPinMode}
-                  pins={pins}
-                  setPins={setPins}
-                  showPins={showPins}
-                  showRadar={showRadar}
-                  onProfileSelect={(p: any) => { setSelectedProfile(p); setShowProfile(true); }}
-                />
+                <>
+                  {showMap && (
+                    <div className="absolute inset-0 transition-opacity duration-1000 animate-in fade-in z-0 p-4 pt-16 h-full">
+                      <MapView 
+                        isExpanded={isExpanded}
+                        user={user}
+                        onBackClick={handleBackClick}
+                        onExpandClick={handleExpandClick}
+                        isDroppingPinMode={isDroppingPinMode}
+                        setIsDroppingPinMode={setIsDroppingPinMode}
+                        showRadar={showRadar}
+                        onConnect={handleConnectRequest}
+                        onProfileSelect={(p) => {
+                          setSelectedProfile(p);
+                          setShowProfile(true);
+                        }}
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
               {/* PASS Scanning Overlay */}
@@ -468,86 +567,96 @@ export default function Home() {
               )}
 
               {/* Chat Overlay */}
-              {showChat && (
-                <div className="absolute inset-x-0 bottom-0 top-[20%] bg-black/10 backdrop-blur-sm border-t border-zinc-500/30 rounded-t-[2rem] z-[600] flex flex-col overflow-hidden animate-in slide-in-from-bottom-full duration-300 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-                  {/* Transparent Glass Header - Single Row Layout */}
-                  <div className="flex flex-row items-center bg-black/40 backdrop-blur-md px-3 py-3 shadow-lg z-10 shrink-0 border-b border-white/10 gap-3">
-
-                    {/* Active Chat Information (Fixed Left) */}
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <div className="relative w-10 h-10 rounded-full border-2 border-emerald-500 overflow-hidden shadow-[0_0_15px_rgba(52,211,153,0.3)] shrink-0">
-                        <img src={activeChat.image} className="w-full h-full object-cover" />
-                        {activeChat.unread > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border border-zinc-900 rounded-full"></span>}
-                      </div>
-                      <div className="flex flex-col max-w-[90px] overflow-hidden">
-                        <h3 className="font-bold text-white text-xs leading-tight truncate">{activeChat.name}</h3>
-                        <span className="text-[9px] uppercase font-bold text-zinc-400 tracking-wider flex items-center gap-1 mt-0.5 truncate">
-                          <MapPinned className="w-2.5 h-2.5 text-emerald-500 shrink-0" /> {activeChat.distance}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Vertical Divider */}
-                    <div className="w-px h-8 bg-zinc-800 shrink-0 mx-1"></div>
-
-                    {/* Scrolling Inactive Connections */}
-                    <div className="flex flex-1 gap-2.5 overflow-x-auto no-scrollbar items-center mask-image-[linear-gradient(to_right,white_90%,transparent)] pr-4">
-                      {mockConnections.filter(c => c.id !== activeChat.id).map(c => (
-                        <div key={c.id} onClick={() => setActiveChat(c)} className="relative w-8 h-8 rounded-full border border-zinc-700 opacity-60 overflow-hidden cursor-pointer transition-transform hover:scale-105 hover:opacity-100 shrink-0">
-                          <img src={c.image} className="w-full h-full object-cover" />
-                          {c.unread > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border border-zinc-900 rounded-full"></span>}
+                  <div className={`absolute inset-0 w-full h-full bg-zinc-100/90 dark:bg-zinc-950/90 backdrop-blur-xl border-zinc-500/30 rounded-[2rem] z-[600] flex flex-col min-h-0 overflow-hidden shadow-inner transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${showChat ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'}`}>
+                  
+                  {/* Horizontal Connections List */}
+                  <div className="flex overflow-x-auto p-4 gap-4 no-scrollbar border-b border-black/10 dark:border-white/10 shrink-0 bg-black/5 dark:bg-black/40 touch-pan-x" style={{ WebkitOverflowScrolling: 'touch' }} onWheel={(e) => { if (e.currentTarget) e.currentTarget.scrollLeft += e.deltaY; }}>
+                    {connections.map((conn) => (
+                      <button
+                        key={conn.id}
+                        onClick={() => setActiveChat(conn)}
+                        className={`flex flex-col items-center gap-2 shrink-0 transition-all duration-300 ${activeChat?.id === conn.id ? 'opacity-100 scale-110' : 'opacity-50 hover:opacity-100'}`}
+                      >
+                        <div className="relative">
+                          <img src={conn.image} alt={conn.name} className={`rounded-full object-cover border-2 transition-all ${activeChat?.id === conn.id ? 'w-20 h-20 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'w-14 h-14 border-transparent'}`} />
+                          {conn.unread > 0 && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-[10px] font-bold text-black border border-black shadow-sm">
+                              {conn.unread}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-
-                    {/* Close Button */}
-                    <button onClick={() => setShowChat(false)} className="btn-touch p-1.5 bg-white/5 rounded-full hover:bg-white/10 transition-colors shrink-0">
-                      <X className="w-4 h-4 text-zinc-400" />
-                    </button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 no-scrollbar">
-                    {/* Chat Messages */}
-                    {(allMessages[activeChat.id] || []).map((msg, i) => (
-                      <div key={i} className={`flex w-full flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-md ${msg.sender === 'me' ? 'bg-emerald-500 text-black font-medium rounded-tr-sm' : 'bg-white/10 text-zinc-200 border border-white/5 rounded-tl-sm'}`}>
-                          {msg.text}
-                        </div>
-                        <span className={`text-[9px] mt-1 text-zinc-500 font-medium tracking-wide ${msg.sender === 'me' ? 'pr-1' : 'pl-1'}`}>{msg.time}</span>
-                      </div>
+                        <span className="text-[10px] font-medium truncate w-14 text-center text-zinc-300">{conn.name}</span>
+                      </button>
                     ))}
-                    {isTyping && (
-                      <div className="flex w-full justify-start animate-in fade-in">
-                        <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white/5 text-zinc-400 text-xs italic border border-white/5 rounded-tl-sm flex items-center gap-1.5 h-[44px]">
-                          <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                          <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                          <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                        </div>
-                      </div>
-                    )}
                   </div>
-                  <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-black/40 flex gap-2 shrink-0">
-                    <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type a message..." className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-zinc-500 shadow-inner" />
-                    <button type="submit" disabled={!chatInput.trim()} className="btn-touch bg-emerald-500 text-black p-3 rounded-full flex items-center justify-center disabled:opacity-50 disabled:bg-zinc-700 disabled:text-zinc-500 shadow-lg">
-                      <Send className="w-4 h-4 ml-0.5" />
-                    </button>
-                  </form>
-                </div>
-              )}
 
-              {/* Photo Pins Overlay */}
-              {showPins && (
-                <div className="absolute inset-x-0 bottom-0 top-[40%] bg-black/60 backdrop-blur-xl border-t border-emerald-500/30 rounded-t-[2rem] z-[500] flex flex-col p-6 animate-in slide-in-from-bottom-full duration-300 shadow-[0_-10px_50px_rgba(16,185,129,0.15)]">
+                  {/* Chat Detail View */}
+                  {activeChat ? (
+                    <>
+                      <div className="flex justify-between items-center bg-black/5 dark:bg-black/40 px-4 py-3 shrink-0 border-b border-black/10 dark:border-white/10">
+                        <div className="flex flex-col">
+                           <h3 className="font-bold text-foreground text-sm">{activeChat.name}</h3>
+                           <span className="text-[10px] text-emerald-500 font-medium tracking-wide">Connected</span>
+                        </div>
+                        <button onClick={() => setShowChat(false)} className="btn-touch p-2 bg-black/5 dark:bg-white/5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                          <X className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                        </button>
+                      </div>
+                      
+                      <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-contain p-4 flex flex-col gap-4 no-scrollbar bg-black/5 dark:bg-black/20 min-h-0">
+                        {(allMessages[activeChat.id] || []).map((msg, i) => (
+                          <div key={i} className={`flex w-full flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                            <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-md ${msg.sender === 'me' ? 'bg-emerald-500 text-black font-medium rounded-tr-sm' : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-black/5 dark:border-white/5 rounded-tl-sm'}`}>
+                              {msg.text}
+                            </div>
+                            <span className="text-[9px] text-zinc-500 dark:text-zinc-500 mt-1 mx-1 font-medium tracking-wide uppercase opacity-70">{msg.time}</span>
+                          </div>
+                        ))}
+                        {isTyping && (
+                          <div className="flex w-full justify-start animate-in fade-in">
+                            <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-white dark:bg-zinc-800 text-zinc-500 text-xs italic border border-black/5 dark:border-white/5 rounded-tl-sm flex items-center gap-1.5 h-[44px]">
+                              <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
+                          </div>
+                        )}
+                        {/* Auto-scroll anchor removed, using container scrollTop instead */}
+                      </div>
+                      
+                      <div className="relative">
+                        <button onClick={scrollToBottom} className="absolute -top-10 right-4 btn-touch bg-zinc-100 dark:bg-zinc-800/80 backdrop-blur-sm border border-black/10 dark:border-white/10 rounded-full p-2 text-foreground shadow-lg z-10 hover:bg-zinc-200 dark:hover:bg-zinc-700">
+                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleSendMessage} className="p-4 border-t border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/40 flex gap-2 shrink-0 relative z-20">
+                        <input type="text" value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Message..." className="flex-1 bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-full px-4 py-2 text-sm text-foreground focus:outline-none focus:border-emerald-500 transition-colors placeholder:text-zinc-500 shadow-inner" />
+                        <button type="submit" disabled={!chatInput.trim()} className="btn-touch bg-emerald-500 text-black w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-50 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:text-zinc-500 dark:disabled:text-zinc-400 shadow-lg shrink-0">
+                          <svg className="w-4 h-4 ml-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 bg-black/20">
+                      <MessageSquare className="w-8 h-8 opacity-20 mb-2" />
+                      <p className="text-sm">Select a connection to chat</p>
+                    </div>
+                  )}
+              </div>
+
+              <div className={`absolute inset-0 bg-background/50 dark:bg-zinc-950/50 backdrop-blur-xl border-t border-zinc-500/30 rounded-[2rem] z-[500] flex flex-col items-center justify-center shadow-[0_-10px_40px_rgba(0,0,0,0.5)] transition-all duration-500 p-6 ${showPins ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
                   <div className="flex justify-between items-center w-full mb-6 shrink-0">
-                    <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-foreground tracking-wide flex items-center gap-2">
                       <MapPinned className="w-5 h-5 text-emerald-500" /> My Photo Pins
                     </h2>
-                    <button onClick={() => setShowPins(false)} className="btn-touch p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                      <X className="w-4 h-4 text-zinc-400" />
+                    <button onClick={() => setShowPins(false)} className="btn-touch p-2 bg-black/5 dark:bg-white/5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                      <X className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
                     </button>
                   </div>
                   
                   {/* Gallery Grid */}
-                  <div className="flex-1 overflow-y-auto no-scrollbar grid grid-cols-2 gap-4 pb-10">
+                  <div className="flex-1 overflow-y-auto overscroll-contain no-scrollbar grid grid-cols-2 gap-4 pb-10 min-h-0">
                     {/* Upload / Take Picture Button */}
                     <label className="relative btn-touch flex flex-col items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 border-2 border-dashed border-emerald-500/40 rounded-2xl h-40 cursor-pointer transition-colors group">
                       <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePassUpload} />
@@ -568,7 +677,6 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              )}
 
               {/* Profile Overlay */}
               {showProfile && selectedProfile && (
@@ -676,31 +784,96 @@ export default function Home() {
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 h-20 glass-card !rounded-none !border-x-0 !border-b-0 flex items-center justify-around px-6 z-50">
         <div onClick={() => {
-          setShowRadar(!showRadar);
+          if (!showMap) {
+            setIsDiscovering(true);
+            setTimeout(() => {
+              setShowMap(true);
+              setIsExpanded(true);
+              setShowRadar(true);
+              setShowConnections(false);
+            }, 2100);
+            return;
+          }
+          const nextState = !showRadar;
+          setShowRadar(nextState);
           setShowConnections(false);
+          if (nextState) {
+            setIsExpanded(true);
+            setIsDiscovering(true);
+          }
         }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showRadar && !showConnections ? 'opacity-100 text-primary' : 'opacity-50'}`}>
           <div className={`w-6 h-6 rounded-md ${showRadar && !showConnections ? 'bg-primary/20 border border-primary/20' : 'bg-white/10'}`} />
           <span className="text-[10px] font-medium">Radar</span>
         </div>
         <div onClick={() => {
-          setShowPins(!showPins);
+          if (!showMap) {
+            setIsDiscovering(true);
+            setTimeout(() => {
+              setShowMap(true);
+              setIsExpanded(true);
+              setShowPins(true);
+              setShowChat(false);
+              setShowConnections(false);
+            }, 2100);
+            return;
+          }
+          const nextState = !showPins;
+          setShowPins(nextState);
+          if (nextState) {
+            setShowChat(false);
+            setIsExpanded(true);
+            setIsDiscovering(true);
+          }
           setShowConnections(false);
-        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showPins ? 'opacity-100 text-emerald-500' : 'opacity-50'}`}>
+        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showPins ? 'opacity-100 text-emerald-400' : 'opacity-50'}`}>
           <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showPins ? 'bg-emerald-500/20 border border-emerald-500/20 text-emerald-500' : 'bg-white/10'}`}>
             <MapPinned className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-medium">Photo Pins</span>
         </div>
         <div onClick={() => {
-          setShowChat(!showChat);
+          if (!showMap) {
+            setIsDiscovering(true);
+            setTimeout(() => {
+              setShowMap(true);
+              setIsExpanded(true);
+              setShowChat(true);
+              setShowPins(false);
+              setShowConnections(false);
+              if (!activeChat && connections.length > 0) setActiveChat(connections[0]);
+            }, 2100);
+            return;
+          }
+          const nextState = !showChat;
+          setShowChat(nextState);
+          if (nextState) {
+            setShowPins(false);
+            setIsExpanded(true);
+            setIsDiscovering(true);
+            if (!activeChat && connections.length > 0) {
+              setActiveChat(connections[0]); // Select most recent chat by default
+            }
+          }
           setShowConnections(false);
-        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showChat ? 'opacity-100 text-teal-400' : 'opacity-50'}`}>
+        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showChat ? 'opacity-100 text-emerald-400' : 'opacity-50'}`}>
           <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showChat ? 'bg-teal-500/20 border border-teal-500/20 text-teal-400' : 'bg-white/10'}`}>
             <MessageSquare className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-medium">Chat</span>
         </div>
         <div onClick={() => {
+          if (!showMap) {
+            setIsDiscovering(true);
+            setTimeout(() => {
+              setShowMap(true);
+              setIsExpanded(true);
+              setShowConnections(true);
+              setShowPins(false);
+              setShowChat(false);
+              setShowProfile(false);
+            }, 2100);
+            return;
+          }
           const nextState = !showConnections;
           setShowConnections(nextState);
           if (nextState) {

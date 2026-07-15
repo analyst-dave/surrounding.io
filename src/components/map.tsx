@@ -5,6 +5,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import * as htmlToImage from 'html-to-image';
 import { Layers, Image as ImageIcon, X, Download, Settings, Link as LinkIcon } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 interface MapProps {
     user?: {
@@ -20,7 +21,8 @@ interface MapProps {
     setPins?: any;
     showPins?: boolean;
     showRadar?: boolean;
-    onProfileSelect?: (profile: void) => void;
+    onProfileSelect?: (profile: any) => void;
+    onConnect?: (userId: string) => void;
 }
 
 // Fix leaflet marker icon resolution issues
@@ -71,7 +73,7 @@ const createProfileIcon = (user: { name: string, image: string, type: 'connectio
         html: `
             <div class="relative flex flex-col items-center justify-center">
                 <span class="absolute -top-10 whitespace-nowrap px-2.5 py-1 rounded-full bg-emerald-500/5 text-emerald-100/50 text-[10px] font-black tracking-widest uppercase animate-name-flash backdrop-blur-sm border border-emerald-400/10 z-50 pointer-events-none" style="animation-delay: ${delay}s;">
-                ${user.name}
+                ${(user.name || user.username || user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'UNDEFINED').toUpperCase()}
                 </span>
                 <img src="${user.image}" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid ${borderColor}; box-shadow: 0 0 15px ${shadowColor}; object-fit: cover;" />
                 ${onlinePulse}
@@ -82,7 +84,7 @@ const createProfileIcon = (user: { name: string, image: string, type: 'connectio
     });
 };
 
-function UserRadarMarker({ u, position, showRadar, playRadarPing, onProfileSelect }: { u: any, position: [number, number], showRadar: boolean, playRadarPing: () => void, onProfileSelect?: (profile: any) => void }) {
+function UserRadarMarker({ u, position, showRadar, playRadarPing, onProfileSelect, onConnect }: { u: any, position: [number, number], showRadar: boolean, playRadarPing: () => void, onProfileSelect?: (profile: any) => void, onConnect?: (userId: string) => void }) {
     const delay = getRadarDelay(u.lat, u.lng, position[0], position[1]);
 
     const hasPingedRef = useRef(false);
@@ -107,15 +109,20 @@ function UserRadarMarker({ u, position, showRadar, playRadarPing, onProfileSelec
             <Popup className="dark-popup">
                 <div className="font-sans text-sm font-medium">
                     <button onClick={() => onProfileSelect?.(u)} className="font-bold border-b border-white/10 pb-1 mb-1 hover:text-emerald-400 transition-colors w-full text-left cursor-pointer">{u.name}</button>
-                    <div className="text-zinc-300 text-xs">{u.role}</div>
-                    <div className="text-emerald-500 text-[10px] uppercase mt-1">{(getDistance(position[0], position[1], u.lat, u.lng)).toFixed(0)}m away</div>
+                    <div className="text-zinc-300 text-xs">{u.role || 'Proximity Member'}</div>
+                    <div className="text-emerald-500 text-[10px] uppercase mt-1 mb-2">{(getDistance(position[0], position[1], u.lat, u.lng)).toFixed(0)}m away</div>
+                    {onConnect && (
+                        <button onClick={() => onConnect(u.id)} className="w-full bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/50 rounded py-1 text-[10px] font-bold uppercase transition-colors">
+                            Connect
+                        </button>
+                    )}
                 </div>
             </Popup>
         </Marker>
     );
 }
 
-function MapResizer() {
+function MapResizer({ isExpanded }: { isExpanded: boolean }) {
     const map = useMap();
     useEffect(() => {
         const observer = new ResizeObserver(() => {
@@ -123,8 +130,19 @@ function MapResizer() {
         });
         const container = map.getContainer();
         if (container) observer.observe(container);
-        return () => observer.disconnect();
-    }, [map]);
+        
+        let count = 0;
+        const interval = setInterval(() => {
+            map.invalidateSize();
+            count++;
+            if (count > 200) clearInterval(interval);
+        }, 20);
+
+        return () => {
+            observer.disconnect();
+            clearInterval(interval);
+        };
+    }, [map, isExpanded]);
     return null;
 }
 function MapLogic({ radius, position }: { radius: number, position: [number, number] | null }) {
@@ -138,7 +156,11 @@ function MapLogic({ radius, position }: { radius: number, position: [number, num
             [position[0] - latDiff, position[1] - lngDiff],
             [position[0] + latDiff, position[1] + lngDiff]
         );
-        map.fitBounds(bounds, { padding: [20, 20], maxZoom: 20 });
+        try {
+            map.fitBounds(bounds, { padding: [20, 20], maxZoom: 20 });
+        } catch (e) {
+            // Ignore error if map container isn't fully initialized yet
+        }
     }, [radius, position, map]);
     return null;
 }
@@ -201,7 +223,7 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
     return R * c;
 }
 
-export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDroppingPinMode, setIsDroppingPinMode, pins = [], setPins, showPins = true, showRadar = true, onProfileSelect }: MapProps) {
+export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDroppingPinMode, setIsDroppingPinMode, pins = [], setPins, showPins = true, showRadar = true, onProfileSelect, onConnect }: MapProps) {
     const [position, setPosition] = useState<[number, number] | null>(null);
     const [radius, setRadius] = useState(100);
     const [mapLayer, setMapLayer] = useState<'dark' | 'street' | 'satellite' | 'terrain' | 'light' | 'topo'>('dark');
@@ -246,59 +268,47 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
     const [pinMessage, setPinMessage] = useState("");
     const [pinVisibility, setPinVisibility] = useState<'public' | 'connections' | 'private'>('public');
 
-    // Generate static mock users relative to the starting position
-    const mockNearbyUsers = useMemo(() => {
-        if (!position) return [];
-        const users = [];
-        const names = ['Sarah J.', 'Mike T.', 'Elena R.', 'David W.', 'Alex K.', 'Jordan P.', 'Chris L.', 'Aisha M.', 'Tom H.', 'Kelly B.', 'James C.', 'Sam D.', 'Erica F.', 'Greg G.', 'Hannah I.'];
-        const roles = ['Software Engineer', 'Product Designer', 'Founder', 'Investor', 'Marketing', 'Data Scientist', 'Sales Lead', 'Student', 'Freelancer'];
-        const types: ('connection' | 'group' | 'none')[] = ['connection', 'group', 'none'];
+    const supabase = createClient();
+    const [nearbyUsers, setNearbyUsers] = useState<any[]>([]);
 
-        // ~15 miles is roughly 24000 meters. 1 degree of lat/lng is ~111km.
-        // So 24km is roughly 0.22 degrees. We'll generate offsets within +/- 0.44
-        for (let i = 0; i < 500; i++) {
-            // 3% chance for ultra-close (within a few hundred feet = ~0.001 degrees)
-            const isUltraClose = Math.random() < 0.03;
-
-            const maxRadiusDegrees = isUltraClose ? 0.002 : 0.44; // ~15 miles
-
-            // Generate uniformly distributed points within a circle
-            const r = maxRadiusDegrees * Math.sqrt(Math.random());
-            const theta = Math.random() * 2 * Math.PI;
-
-            const latOffset = r * Math.sin(theta);
-            const lngOffset = r * Math.cos(theta);
-
-            // Randomize social media integrations
-            const possibleSocials = [
-                { platform: 'linkedin', count: `${Math.floor(Math.random() * 500) + 100}+ connections` },
-                { platform: 'github', count: `${Math.floor(Math.random() * 100) + 10} repositories` },
-                { platform: 'twitter', count: `${(Math.random() * 10).toFixed(1)}K followers` },
-                { platform: 'facebook', count: `${Math.floor(Math.random() * 800) + 200} friends` }
-            ];
-            const numSocials = Math.floor(Math.random() * 4); // 0 to 3 socials
-            const assignedSocials = [...possibleSocials].sort(() => 0.5 - Math.random()).slice(0, numSocials);
-
-            users.push({
-                id: `mock-${i}`,
-                lat: position[0] + latOffset,
-                lng: position[1] + lngOffset,
-                name: names[Math.floor(Math.random() * names.length)],
-                role: roles[Math.floor(Math.random() * roles.length)],
-                image: `https://i.pravatar.cc/150?u=mock_${i}`,
-                type: types[Math.floor(Math.random() * types.length)],
-                isOnline: Math.random() > 0.5, // 50% chance they are currently marked online
-                socials: assignedSocials
+    useEffect(() => {
+        if (!position) return;
+        
+        const fetchNearby = async () => {
+            const { data, error } = await supabase.rpc('find_nearby_users', {
+                current_lng: position[1],
+                current_lat: position[0],
+                radius_meters: radius
             });
-        }
-        return users;
-    }, [position?.[0], position?.[1]]);
+            
+            if (error) {
+                console.error("Error fetching nearby users:", error);
+                return;
+            }
+            
+            // Format data to match what the marker component expects
+            const formattedUsers = data.map((u: any) => ({
+                id: u.id,
+                lat: u.lat + (Math.random() - 0.5) * 0.0001, // Add slight jitter if they share same exact lat/lng for display
+                lng: u.lng + (Math.random() - 0.5) * 0.0001,
+                name: u.username || `User_${u.id.substring(0, 4)}`,
+                role: 'User', // We can add role to DB later
+                image: u.avatar_url || 'https://i.pravatar.cc/150',
+                type: 'connection', // Simplified for now
+                isOnline: true,
+                distance: u.distance_meters
+            }));
+            
+            setNearbyUsers(formattedUsers);
+        };
+        
+        fetchNearby();
+    }, [position, radius]);
 
-    // Filter users strictly by current radar radius
     const visibleUsers = useMemo(() => {
         if (!position) return [];
-        return mockNearbyUsers.filter(u => getDistance(position[0], position[1], u.lat, u.lng) <= radius);
-    }, [mockNearbyUsers, position, radius]);
+        return nearbyUsers.filter(u => getDistance(position[0], position[1], u.lat, u.lng) <= radius);
+    }, [nearbyUsers, position, radius]);
 
     const mapRef = useRef<HTMLDivElement>(null);
 
@@ -342,10 +352,29 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    setPosition([pos.coords.latitude, pos.coords.longitude]);
+                    const newPos: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                    setPosition(newPos);
+                    
+                    // Trigger Teleport API to move dummy nodes near this new location exactly once
+                    if (user && !localStorage.getItem('dummy_relocated_v4')) {
+                        fetch('/api/teleport', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ lat: newPos[0], lng: newPos[1] })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                console.log('Dummy nodes relocated to your area.');
+                                localStorage.setItem('dummy_relocated_v4', 'true');
+                                // Force a slight jitter to trigger radar updates
+                                setPosition([newPos[0] + 0.0001, newPos[1] + 0.0001]);
+                            }
+                        })
+                        .catch(err => console.error('Teleport failed:', err));
+                    }
                 },
                 (err) => {
-                    // Fallback to a default location (e.g., Sacramento) if denied or error
                     setPosition([38.5816, -121.4944]);
                 },
                 { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
@@ -353,7 +382,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
         } else {
             setPosition([38.5816, -121.4944]);
         }
-    }, []);
+    }, [user]);
 
     if (!position) {
         return (
@@ -375,7 +404,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
     ];
 
     return (
-        <div ref={mapRef} className={`w-full h-full rounded-[2rem] overflow-hidden relative shadow-inner bg-zinc-900 ${isDroppingPinMode ? 'pin-drop-mode' : ''}`}>
+        <div ref={mapRef} className={`w-full h-full rounded-[2rem] overflow-hidden relative shadow-inner bg-black ${isDroppingPinMode ? 'pin-drop-mode' : ''}`}>
             <MapContainer
                 center={position}
                 zoom={17}
@@ -385,7 +414,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 attributionControl={false}
             >
                 <MapLogic radius={radius} position={position} />
-                <MapResizer />
+                <MapResizer isExpanded={isExpanded} />
                 {/* Dynamically swapped map tiles */}
                 <TileLayer
                     url={LAYERS[mapLayer]}
@@ -409,6 +438,21 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                         </SVGOverlay>
                     </>
                 )}
+
+                {/* Nearby Users (Filtered by Radius) */}
+                {showRadar && visibleUsers.map(u => (
+                    <UserRadarMarker 
+                        key={u.id} 
+                        u={u} 
+                        position={position as [number, number]} 
+                        showRadar={showRadar} 
+                        playRadarPing={playRadarPing} 
+                        onProfileSelect={onProfileSelect}
+                        onConnect={onConnect}
+                    />
+                ))}
+
+
 
                 {/* Pin Drop Handlers and Rendering */}
                 <PinDropHandler isDroppingPinMode={isDroppingPinMode} setPendingPin={setPendingPin} />
@@ -454,10 +498,10 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 ))}
 
                 {/* Main User Marker */}
-                <Marker position={position} icon={user ? createProfileIcon({ ...user, type: 'connection' }, 0) : pulseIcon}>
+                <Marker position={position} icon={user ? createProfileIcon({ ...user, type: 'connection', image: user.user_metadata?.avatar_url || 'https://i.pravatar.cc/150' }, 0) : pulseIcon}>
                     <Popup className="dark-popup">
                         <div className="font-sans text-sm font-medium">
-                            {user ? `Broadcasting as ${user.name}` : `You are currently broadcasting at T1 (Hidden).`}
+                            {user ? `Broadcasting as ${user.user_metadata?.full_name || user.user_metadata?.name || user.email}` : `You are currently broadcasting at T1 (Hidden).`}
                         </div>
                     </Popup>
                 </Marker>
