@@ -73,9 +73,9 @@ const createProfileIcon = (user: { name: string, image: string, type: 'connectio
         html: `
             <div class="relative flex flex-col items-center justify-center">
                 <span class="absolute -top-10 whitespace-nowrap px-2.5 py-1 rounded-full bg-emerald-500/5 text-emerald-100/50 text-[10px] font-black tracking-widest uppercase animate-name-flash backdrop-blur-sm border border-emerald-400/10 z-50 pointer-events-none" style="animation-delay: ${delay}s;">
-                ${(user.name || user.username || user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'UNDEFINED').toUpperCase()}
+                ${((user as any).name || (user as any).username || (user as any).user_metadata?.full_name || (user as any).user_metadata?.name || (user as any).email || 'UNDEFINED').toUpperCase()}
                 </span>
-                <img src="${user.image}" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid ${borderColor}; box-shadow: 0 0 15px ${shadowColor}; object-fit: cover;" />
+                <img src="${(user as any).image}" style="width: 32px; height: 32px; border-radius: 50%; border: 2px solid ${borderColor}; box-shadow: 0 0 15px ${shadowColor}; object-fit: cover;" />
                 ${onlinePulse}
             </div>
             `,
@@ -279,7 +279,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 current_lng: position[1],
                 current_lat: position[0],
                 radius_meters: radius
-            });
+            } as any);
             
             if (error) {
                 console.error("Error fetching nearby users:", error);
@@ -287,7 +287,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
             }
             
             // Format data to match what the marker component expects
-            const formattedUsers = data.map((u: any) => ({
+            const formattedUsers = (data as any[] || []).map((u: any) => ({
                 id: u.id,
                 lat: u.lat + (Math.random() - 0.5) * 0.0001, // Add slight jitter if they share same exact lat/lng for display
                 lng: u.lng + (Math.random() - 0.5) * 0.0001,
@@ -414,7 +414,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 attributionControl={false}
             >
                 <MapLogic radius={radius} position={position} />
-                <MapResizer isExpanded={isExpanded} />
+                <MapResizer isExpanded={!!isExpanded} />
                 {/* Dynamically swapped map tiles */}
                 <TileLayer
                     url={LAYERS[mapLayer]}
@@ -498,10 +498,10 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 ))}
 
                 {/* Main User Marker */}
-                <Marker position={position} icon={user ? createProfileIcon({ ...user, type: 'connection', image: user.user_metadata?.avatar_url || 'https://i.pravatar.cc/150' }, 0) : pulseIcon}>
+                <Marker position={position} icon={user ? createProfileIcon({ ...user, type: 'connection', image: (user as any).user_metadata?.avatar_url || 'https://i.pravatar.cc/150' }, 0) : pulseIcon}>
                     <Popup className="dark-popup">
                         <div className="font-sans text-sm font-medium">
-                            {user ? `Broadcasting as ${user.user_metadata?.full_name || user.user_metadata?.name || user.email}` : `You are currently broadcasting at T1 (Hidden).`}
+                            {user ? `Broadcasting as ${(user as any).user_metadata?.full_name || (user as any).user_metadata?.name || (user as any).email}` : `You are currently broadcasting at T1 (Hidden).`}
                         </div>
                     </Popup>
                 </Marker>

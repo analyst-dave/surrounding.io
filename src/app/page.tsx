@@ -116,7 +116,7 @@ export default function Home() {
       const formattedConnections = [];
       const messagesMap: Record<string, any[]> = {};
 
-      for (const conn of conns) {
+      for (const conn of (conns as any[] || [])) {
         // Determine the "other" user in the connection
         const otherUser = conn.requester_id === user.id ? conn.addressee : conn.requester;
         
@@ -298,7 +298,7 @@ export default function Home() {
       requester_id: user.id,
       addressee_id: targetUserId,
       status: 'pending'
-    });
+    } as any);
     if (!error) {
       alert("Connection request sent successfully!");
     } else {
