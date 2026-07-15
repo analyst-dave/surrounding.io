@@ -3,7 +3,8 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Github, Twitter, Chrome, Linkedin, UserCircle2, Facebook, MapPinned, Send, MessageSquare, User, X } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Github, Twitter, Chrome, Linkedin, UserCircle2, Facebook, MapPinned, Send, MessageSquare, User, X, Share2 } from "lucide-react";
 
 // Dynamically import Map with no SSR because leaflet requires the window object
 const MapView = dynamic(() => import("@/components/map"), { ssr: false });
@@ -31,9 +32,34 @@ export type Pin = {
 };
 
 export default function Home() {
+  const { resolvedTheme } = useTheme();
   const [isDiscovering, setIsDiscovering] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showConnections, setShowConnections] = useState(false);
+
+  // Synchronize theme with the D3.js iframe
+  useEffect(() => {
+    const iframe = document.getElementById("connections-iframe") as HTMLIFrameElement | null;
+    if (iframe && iframe.contentWindow && (iframe.contentWindow as any).App) {
+      const app = (iframe.contentWindow as any).App;
+      const isLight = resolvedTheme === "light";
+      if (app.Config && app.Config.light !== isLight) {
+        app.ui.theme();
+      }
+    }
+  }, [resolvedTheme]);
+
+  const handleIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+    const iframe = e.currentTarget;
+    if (iframe.contentWindow && (iframe.contentWindow as any).App) {
+      const app = (iframe.contentWindow as any).App;
+      const isLight = resolvedTheme === "light";
+      if (app.Config && app.Config.light !== isLight) {
+        app.ui.theme();
+      }
+    }
+  };
 
   // Pin state
   const [pins, setPins] = useState<Pin[]>([]);
@@ -309,19 +335,36 @@ export default function Home() {
                   onClick={handleExpandClick}
                 />
               )}
-              <MapView
-                user={user}
-                isExpanded={isExpanded}
-                onBackClick={handleBackClick}
-                onExpandClick={handleExpandClick}
-                isDroppingPinMode={isDroppingPinMode}
-                setIsDroppingPinMode={setIsDroppingPinMode}
-                pins={pins}
-                setPins={setPins}
-                showPins={showPins}
-                showRadar={showRadar}
-                onProfileSelect={(p: any) => { setSelectedProfile(p); setShowProfile(true); }}
-              />
+              {showConnections ? (
+                <div className="w-full h-full relative">
+                  <div className="absolute top-4 left-4 z-50 flex items-center gap-2">
+                    <button onClick={() => setShowConnections(false)} className="btn-touch glass-card px-3.5 py-2 text-xs font-bold text-white flex items-center gap-1.5 shadow-lg border border-white/10 bg-black/40 backdrop-blur-md rounded-xl">
+                      <X className="w-3.5 h-3.5" /> Back to Map
+                    </button>
+                  </div>
+                  <iframe
+                    id="connections-iframe"
+                    src="/connections.html"
+                    className="w-full h-full border-0"
+                    title="Connections Map"
+                    onLoad={handleIframeLoad}
+                  />
+                </div>
+              ) : (
+                <MapView
+                  user={user}
+                  isExpanded={isExpanded}
+                  onBackClick={handleBackClick}
+                  onExpandClick={handleExpandClick}
+                  isDroppingPinMode={isDroppingPinMode}
+                  setIsDroppingPinMode={setIsDroppingPinMode}
+                  pins={pins}
+                  setPins={setPins}
+                  showPins={showPins}
+                  showRadar={showRadar}
+                  onProfileSelect={(p: any) => { setSelectedProfile(p); setShowProfile(true); }}
+                />
+              )}
 
               {/* PASS Scanning Overlay */}
               {isUploadingPass && (
@@ -632,33 +675,47 @@ export default function Home() {
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 h-20 glass-card !rounded-none !border-x-0 !border-b-0 flex items-center justify-around px-6 z-50">
-        <div onClick={() => setShowRadar(!showRadar)} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showRadar ? 'opacity-100 text-primary' : 'opacity-50'}`}>
-          <div className={`w-6 h-6 rounded-md ${showRadar ? 'bg-primary/20 border border-primary/20' : 'bg-white/10'}`} />
+        <div onClick={() => {
+          setShowRadar(!showRadar);
+          setShowConnections(false);
+        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showRadar && !showConnections ? 'opacity-100 text-primary' : 'opacity-50'}`}>
+          <div className={`w-6 h-6 rounded-md ${showRadar && !showConnections ? 'bg-primary/20 border border-primary/20' : 'bg-white/10'}`} />
           <span className="text-[10px] font-medium">Radar</span>
         </div>
-        <div onClick={() => setShowPins(!showPins)} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showPins ? 'opacity-100 text-emerald-500' : 'opacity-50'}`}>
+        <div onClick={() => {
+          setShowPins(!showPins);
+          setShowConnections(false);
+        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showPins ? 'opacity-100 text-emerald-500' : 'opacity-50'}`}>
           <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showPins ? 'bg-emerald-500/20 border border-emerald-500/20 text-emerald-500' : 'bg-white/10'}`}>
             <MapPinned className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-medium">Photo Pins</span>
         </div>
-        <div onClick={() => setShowChat(!showChat)} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showChat ? 'opacity-100 text-teal-400' : 'opacity-50'}`}>
+        <div onClick={() => {
+          setShowChat(!showChat);
+          setShowConnections(false);
+        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showChat ? 'opacity-100 text-teal-400' : 'opacity-50'}`}>
           <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showChat ? 'bg-teal-500/20 border border-teal-500/20 text-teal-400' : 'bg-white/10'}`}>
             <MessageSquare className="w-4 h-4" />
           </div>
           <span className="text-[10px] font-medium">Chat</span>
         </div>
         <div onClick={() => {
-          if (!showProfile) {
-            // Default to My Persona if opening without a selection
-            setSelectedProfile(user ? { ...user, role: 'Software Engineer', bio: 'Building the future of proximity networking.' } : { name: 'Guest User', role: 'Observer', bio: 'Just looking around.' });
+          const nextState = !showConnections;
+          setShowConnections(nextState);
+          if (nextState) {
+            setIsDiscovering(true);
+            setShowMap(true);
+            setIsExpanded(true);
+            setShowPins(false);
+            setShowChat(false);
+            setShowProfile(false);
           }
-          setShowProfile(!showProfile);
-        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showProfile ? 'opacity-100 text-purple-400' : 'opacity-50'}`}>
-          <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showProfile ? 'bg-purple-500/20 border border-purple-500/20 text-purple-400' : 'bg-white/10'}`}>
-            <User className="w-4 h-4" />
+        }} className={`flex flex-col items-center gap-1 cursor-pointer transition-opacity ${showConnections ? 'opacity-100 text-purple-400' : 'opacity-50'}`}>
+          <div className={`w-6 h-6 rounded-md flex items-center justify-center ${showConnections ? 'bg-purple-500/20 border border-purple-500/20 text-purple-400' : 'bg-white/10'}`}>
+            <Share2 className="w-4 h-4" />
           </div>
-          <span className="text-[10px] font-medium">Profile</span>
+          <span className="text-[10px] font-medium">Connections</span>
         </div>
       </nav>
     </div>
