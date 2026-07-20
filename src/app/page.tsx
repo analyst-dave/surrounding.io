@@ -395,9 +395,10 @@ export default function Home() {
 
       {/* Hero Section */}
       <header className={`flex flex-col items-center transition-all duration-2000 z-10 shrink-0 ${isDiscovering ? (isExpanded ? 'scale-50 opacity-100 mb-0 -mt-2' : 'scale-75 opacity-100 mb-2 mt-0') : 'scale-100 opacity-100 mb-8 mt-0'}`}>
-        <button onClick={handleBackClick} className="cursor-pointer hover:opacity-80 transition-opacity">
-          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-foreground flex items-center drop-shadow-[0_0_15px_rgba(16,185,129,0.2)] select-none">
+        <button onClick={handleBackClick} className="cursor-pointer hover:opacity-80 transition-opacity w-full max-w-md flex justify-center">
+          <h1 className="relative text-5xl sm:text-6xl font-bold tracking-tight text-zinc-500 flex items-center drop-shadow-[0_0_15px_rgba(16,185,129,0.2)] select-none">
             surr<BeaconO />unding.i<BeaconO />
+            <span className="absolute -bottom-3 right-0 text-[10px] font-normal text-zinc-400 tracking-normal opacity-70">v.14.4</span>
           </h1>
         </button>
         <p className={`text-zinc-400 text-lg max-w-sm mx-auto transition-all duration-1000 overflow-hidden ${isDiscovering ? 'h-0 opacity-0 mt-0' : 'h-[60px] opacity-100 mt-4'}`}>
@@ -445,7 +446,7 @@ export default function Home() {
               ) : (
                 <>
                   {showMap && (
-                    <div className="absolute inset-0 transition-opacity duration-1000 animate-in fade-in z-0 p-4 pt-16 h-full">
+                    <div className="absolute inset-0 transition-opacity duration-1000 animate-in fade-in z-0 h-full">
                       <MapView 
                         isExpanded={isExpanded}
                         user={user}
