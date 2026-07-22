@@ -535,7 +535,7 @@ window.App = {
         });
         ro.observe(document.body);
 
-        if (App.Config.avatars) d3.select(document.body).classed("avatar-mode", true);
+        if (App.Config.avatars) d3.select("#viz").classed("avatar-mode", true);
         if (App.Config.avatars) d3.select("#av-btn").classed("active", true);
         if (App.Config.gravity) d3.select("#grav-btn").classed("active", true);
 

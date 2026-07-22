@@ -111,10 +111,21 @@ function UserRadarMarker({ u, position, showRadar, playRadarPing, onProfileSelec
                     <button onClick={() => onProfileSelect?.(u)} className="font-bold border-b border-white/10 pb-1 mb-1 hover:text-emerald-400 transition-colors w-full text-left cursor-pointer">{u.name}</button>
                     <div className="text-zinc-300 text-xs">{u.role || 'Proximity Member'}</div>
                     <div className="text-emerald-500 text-[10px] uppercase mt-1 mb-2">{(getDistance(position[0], position[1], u.lat, u.lng)).toFixed(0)}m away</div>
-                    {onConnect && (
-                        <button onClick={() => onConnect(u.id)} className="w-full bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/50 rounded py-1 text-[10px] font-bold uppercase transition-colors">
-                            Connect
-                        </button>
+                    {u.isConnected ? (
+                        <div className="flex gap-1">
+                            <button onClick={() => onProfileSelect?.(u)} className="flex-1 bg-teal-500/20 hover:bg-teal-500/40 text-teal-400 border border-teal-500/50 rounded py-1 text-[10px] font-bold uppercase transition-colors">
+                                Chat
+                            </button>
+                            <button onClick={() => onProfileSelect?.(u)} className="flex-1 bg-purple-500/20 hover:bg-purple-500/40 text-purple-400 border border-purple-500/50 rounded py-1 text-[10px] font-bold uppercase transition-colors">
+                                Pins
+                            </button>
+                        </div>
+                    ) : (
+                        onConnect && (
+                            <button onClick={() => onConnect(u.id)} className="w-full bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 border border-emerald-500/50 rounded py-1 text-[10px] font-bold uppercase transition-colors">
+                                Connect
+                            </button>
+                        )
                     )}
                 </div>
             </Popup>
@@ -125,22 +136,27 @@ function UserRadarMarker({ u, position, showRadar, playRadarPing, onProfileSelec
 function MapResizer({ isExpanded }: { isExpanded: boolean }) {
     const map = useMap();
     useEffect(() => {
+        let timeoutId: NodeJS.Timeout;
         const observer = new ResizeObserver(() => {
-            map.invalidateSize();
+            // Debounce invalidateSize to prevent blocking tile loading
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                map.invalidateSize();
+            }, 100);
         });
+        
         const container = map.getContainer();
         if (container) observer.observe(container);
         
-        let count = 0;
-        const interval = setInterval(() => {
+        // Also ensure it fires exactly once after the CSS transition finishes
+        const transitionTimeout = setTimeout(() => {
             map.invalidateSize();
-            count++;
-            if (count > 200) clearInterval(interval);
-        }, 20);
+        }, 2100);
 
         return () => {
             observer.disconnect();
-            clearInterval(interval);
+            clearTimeout(timeoutId);
+            clearTimeout(transitionTimeout);
         };
     }, [map, isExpanded]);
     return null;
@@ -275,6 +291,7 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
         if (!position) return;
         
         const fetchNearby = async () => {
+            // Fetch nearby users from RPC
             const { data, error } = await supabase.rpc('find_nearby_users', {
                 current_lng: position[1],
                 current_lat: position[0],
@@ -285,19 +302,42 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
                 console.error("Error fetching nearby users:", error);
                 return;
             }
+
+            // Fetch current user's accepted connections to cross-reference
+            const { data: { session } } = await supabase.auth.getSession();
+            let connectedIds = new Set<string>();
+            if (session?.user) {
+                const { data: conns } = await supabase
+                    .from('connections')
+                    .select('requester_id, addressee_id')
+                    .eq('status', 'accepted')
+                    .or(`requester_id.eq.${session.user.id},addressee_id.eq.${session.user.id}`);
+                
+                if (conns) {
+                    conns.forEach((c: any) => {
+                        connectedIds.add(c.requester_id === session.user.id ? c.addressee_id : c.requester_id);
+                    });
+                }
+            }
             
-            // Format data to match what the marker component expects
-            const formattedUsers = (data as any[] || []).map((u: any) => ({
-                id: u.id,
-                lat: u.lat + (Math.random() - 0.5) * 0.0001, // Add slight jitter if they share same exact lat/lng for display
-                lng: u.lng + (Math.random() - 0.5) * 0.0001,
-                name: u.username || `User_${u.id.substring(0, 4)}`,
-                role: 'User', // We can add role to DB later
-                image: u.avatar_url || 'https://i.pravatar.cc/150',
-                type: 'connection', // Simplified for now
-                isOnline: true,
-                distance: u.distance_meters
-            }));
+            // Format data — distinguish connections from strangers
+            let strangerCounter = 0;
+            const formattedUsers = (data as any[] || []).map((u: any) => {
+                const isConnected = connectedIds.has(u.id);
+                if (!isConnected) strangerCounter++;
+                return {
+                    id: u.id,
+                    lat: u.lat + (Math.random() - 0.5) * 0.0001,
+                    lng: u.lng + (Math.random() - 0.5) * 0.0001,
+                    name: isConnected ? (u.username || `Connection_${u.id.substring(0, 4)}`) : `user_${strangerCounter}`,
+                    role: isConnected ? 'Connection' : 'Nearby Stranger',
+                    image: u.avatar_url || 'https://i.pravatar.cc/150',
+                    type: isConnected ? 'connection' as const : 'none' as const,
+                    isOnline: true,
+                    distance: u.distance_meters,
+                    isConnected
+                };
+            });
             
             setNearbyUsers(formattedUsers);
         };
@@ -347,42 +387,64 @@ export default function Map({ user, isExpanded, onBackClick, onExpandClick, isDr
         setIsGenerating(false);
     };
 
+    // Get user location — runs once on mount, caches in sessionStorage
     useEffect(() => {
-        // Get user location using browser API
+        // Check sessionStorage for cached position first
+        const cached = sessionStorage.getItem('user_position');
+        if (cached) {
+            try {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length === 2) {
+                    setPosition(parsed as [number, number]);
+                    return;
+                }
+            } catch { /* ignore parse errors */ }
+        }
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     const newPos: [number, number] = [pos.coords.latitude, pos.coords.longitude];
                     setPosition(newPos);
-                    
-                    // Trigger Teleport API to move dummy nodes near this new location exactly once
-                    if (user && !localStorage.getItem('dummy_relocated_v4')) {
-                        fetch('/api/teleport', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ lat: newPos[0], lng: newPos[1] })
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.success) {
-                                console.log('Dummy nodes relocated to your area.');
-                                localStorage.setItem('dummy_relocated_v4', 'true');
-                                // Force a slight jitter to trigger radar updates
-                                setPosition([newPos[0] + 0.0001, newPos[1] + 0.0001]);
-                            }
-                        })
-                        .catch(err => console.error('Teleport failed:', err));
-                    }
+                    sessionStorage.setItem('user_position', JSON.stringify(newPos));
                 },
-                (err) => {
-                    setPosition([38.5816, -121.4944]);
+                () => {
+                    const fallback: [number, number] = [38.5816, -121.4944];
+                    setPosition(fallback);
+                    sessionStorage.setItem('user_position', JSON.stringify(fallback));
                 },
-                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
             );
         } else {
-            setPosition([38.5816, -121.4944]);
+            const fallback: [number, number] = [38.5816, -121.4944];
+            setPosition(fallback);
+            sessionStorage.setItem('user_position', JSON.stringify(fallback));
         }
-    }, [user]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Teleport dummy nodes near user — runs once when user + position are both available
+    useEffect(() => {
+        if (!user || !position) return;
+        if (localStorage.getItem('dummy_relocated_v4')) return;
+
+        fetch('/api/teleport', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: position[0], lng: position[1] })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Dummy nodes relocated to your area.');
+                localStorage.setItem('dummy_relocated_v4', 'true');
+                // Force a slight jitter to trigger radar updates
+                const jittered: [number, number] = [position[0] + 0.0001, position[1] + 0.0001];
+                setPosition(jittered);
+                sessionStorage.setItem('user_position', JSON.stringify(jittered));
+            }
+        })
+        .catch(err => console.error('Teleport failed:', err));
+    }, [user, position]);
 
     if (!position) {
         return (
